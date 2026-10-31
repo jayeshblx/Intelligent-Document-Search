@@ -1,0 +1,1470 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DocuSearch Assistant</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" />
+<style>
+  :root {
+    --bg:#f4f7fc; --surface:#ffffff; --surface2:#eef2f9; --raise:#ffffff;
+    --border:#e2e8f2; --border-strong:#cdd7e6;
+    --text:#1a2233; --text-soft:#37425a; --muted:#64748b; --faint:#9aa7bd;
+    --accent:#2563eb; --accent-strong:#1d4ed8;
+    --accent-soft:#e6efff; --user:#eef3fc;
+    --vector:#2563eb; --keyword:#0891b2; --both:#6366f1; --good:#16a34a;
+    /* Exact values from the product's styles.css (.header, .crumb-link, .logo, .crumb-current). */
+    --brandname:#564dc0; --crumb:#a4a5b8; --crumb-current:#6dadde; --chevron:#96b5cc;
+    --shadow:0 1px 2px rgba(40,34,25,.04), 0 6px 20px rgba(40,34,25,.05);
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-synthesis:none;
+  }
+  * { box-sizing:border-box; }
+  html,body { height:100%; margin:0; }
+  body { background:var(--bg); color:var(--text); font:15px/1.6 var(--sans);
+    display:flex; flex-direction:column;
+    -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+    font-feature-settings:'cv05' 1, 'ss01' 1; }  /* single-storey l, disambiguated I/l/1 */
+  ::selection { background:var(--accent-soft); }
+  /* ---------- Example Co top bar ---------- */
+  .stickyhead { position:sticky; top:0; z-index:30; box-shadow:var(--shadow); }
+  /* Mirrors the product's .header (40px band) + .name-logo (600, calc size, white). */
+  .topbar { background:var(--brandname); color:#fff; display:flex; align-items:center;
+    justify-content:space-between; gap:16px; padding:0 22px 0 32px; height:40px; flex:0 0 40px; }
+  .brandname { font:600 calc(1.1rem + 0.2vw)/1 var(--sans); letter-spacing:normal; }
+  /* ---------- header ---------- */
+  /* Fixed 40px band, mirroring the product's .topbar. Every control inside is 28px tall
+     (the product's .report-btn height), leaving 6px of air top and bottom. */
+  header { border-bottom:1px solid var(--border); padding:0 18px; display:flex;
+    align-items:center; gap:10px; height:40px; flex:0 0 40px; background:var(--raise); }
+  header .btn { height:28px; padding:0 12px; font-size:12.5px; border-radius:8px;
+    display:inline-flex; align-items:center; white-space:nowrap; flex:0 0 auto; }
+  .brand { display:flex; align-items:center; gap:11px; min-width:0; flex:0 1 auto; }
+  /* Matches the product's .title (450/14px, 6px 8px) + .crumb-link colour. */
+  .brand h1 { font:450 14px/1.2 var(--sans); color:var(--crumb); margin:0; padding:6px 8px;
+    letter-spacing:normal; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  /* Breadcrumb after the product name: "> Ask Documents" / "> Browse All Documents",
+     in a light blue. */
+  .brand h1 .crumb { color:#60a5fa; font-weight:600; }
+  .brand .sub { color:var(--muted); font-size:11.5px; margin-top:3px; letter-spacing:.02em; }
+  /* Trailing ↗ marking a control that opens a new browser tab. */
+  .ext { font-size:11px; opacity:.65; margin-left:5px; }
+  .right { margin-left:auto; display:flex; align-items:center; gap:10px; min-width:0; }
+  /* Dedicated Browse window (opened in a new tab via ?view=browse): it's document-only,
+     so drop the chat controls — Browse Documents, New chat, credits meter, ⋯ menu —
+     and keep just the Filters button. */
+  body.browse-window #browseDocs,
+  body.browse-window #newchat,
+  body.browse-window #meter,
+  body.browse-window #hdrMenu { display:none !important; }
+  /* ⋯ details menu (index counts + session context, hidden by default) */
+  .menu { position:relative; }
+  .menubtn { background:var(--surface); border:1px solid var(--border-strong); color:var(--muted);
+    border-radius:8px; height:28px; padding:0 10px; font:700 16px/1 var(--sans); cursor:pointer;
+    display:inline-flex; align-items:center; flex:0 0 auto; }
+  .menubtn:hover { border-color:var(--accent); color:var(--accent-strong); }
+  .menu-pop { position:absolute; right:0; top:calc(100% + 6px); background:var(--surface);
+    border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow); padding:9px 13px;
+    display:none; flex-direction:column; gap:6px; z-index:40; min-width:190px; }
+  .menu:hover .menu-pop, .menu.open .menu-pop { display:flex; }
+  .menu-pop .stat, .menu-pop .timer { white-space:nowrap; font-size:12px; color:var(--muted); }
+  .stat { color:var(--muted); font-size:12px; display:flex; align-items:center; gap:6px;
+    font-variant-numeric:tabular-nums; }
+  .dot { width:7px; height:7px; border-radius:50%; background:var(--good);
+    box-shadow:0 0 0 3px rgba(63,138,104,.15); }
+  .timer { color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; }
+  button { cursor:pointer; font-family:inherit; }
+  .btn { border-radius:10px; border:1px solid var(--border-strong); background:var(--surface);
+    color:var(--text-soft); font-size:13px; font-weight:600; padding:8px 14px; transition:.15s; }
+  .btn:hover { background:var(--surface2); }
+  .btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .btn.primary:hover { background:var(--accent-strong); }
+  /* ---------- filters ---------- */
+  .fltbtn { background:var(--surface); border:1px solid var(--border-strong); color:var(--text-soft);
+    border-radius:8px; height:28px; padding:0 11px; font-size:12px; font-weight:600; cursor:pointer;
+    font-family:inherit; display:inline-flex; align-items:center; white-space:nowrap; flex:0 0 auto; }
+  .fltbtn:hover { border-color:var(--accent); color:var(--accent-strong); }
+  .fltbtn.on { background:var(--accent-soft); border-color:var(--accent); color:var(--accent-strong); }
+  .fltbtn b { background:var(--accent); color:#fff; border-radius:999px; padding:0 6px; margin-left:4px;
+    font-size:11px; }
+  .filters { border-bottom:1px solid var(--border); padding:6px 18px; display:flex; gap:6px;
+    flex-wrap:wrap; align-items:center; background:var(--raise); }
+  .filters.collapsed { display:none; }
+  .filters .lbl { color:var(--muted); font-size:11.5px; font-weight:600; }
+  .filters select { background:var(--surface); border:1px solid var(--border-strong); color:var(--text-soft);
+    border-radius:8px; padding:6px 10px; font-size:12.5px; font-family:inherit; cursor:pointer; }
+  .filters select:focus { outline:none; border-color:var(--accent); }
+  /* Type-to-filter combobox: input + ✕ clear + a live-filtered option list. */
+  .fwrap { position:relative; display:inline-flex; align-items:center; flex:0 0 auto; }
+  /* An explicit width is required: a bare <input> defaults to ~200px (size=20), which
+     min-width can't rein in — that's what made this bar wrap onto two rows. This 140px is
+     only the pre-JS fallback; fitFilterWidth() measures the real text and overrides it. */
+  .filters input.ffilter { background:var(--surface); border:1px solid var(--border-strong);
+    color:var(--text-soft); border-radius:7px; height:28px; padding:0 21px 0 9px; font-size:12px;
+    font-family:inherit; width:140px; min-width:0; text-overflow:ellipsis; }
+  .filters input.ffilter:focus { outline:none; border-color:var(--accent); }
+  .filters input.ffilter::placeholder { color:var(--muted); }
+  .fclear { position:absolute; right:4px; background:none; border:none; color:var(--faint);
+    cursor:pointer; font-size:10.5px; line-height:1; padding:3px; display:none; }
+  .fwrap.has-value .fclear { display:block; }
+  .fclear:hover { color:var(--danger); }
+  .fdrop { position:absolute; left:0; top:calc(100% + 4px); background:var(--surface);
+    border:1px solid var(--border); border-radius:9px; box-shadow:var(--shadow); max-height:240px;
+    overflow-y:auto; min-width:100%; width:max-content; max-width:340px; z-index:50; display:none;
+    padding:4px; }
+  .fdrop.open { display:block; }
+  .fdrop .opt { padding:5px 9px; border-radius:6px; font-size:12px; cursor:pointer;
+    color:var(--text-soft); white-space:nowrap; }
+  .fdrop .opt:hover { background:var(--accent-soft); color:var(--accent-strong); }
+  .fdrop .none { padding:6px 10px; font-size:12px; color:var(--muted); }
+  .filters .clear { color:var(--accent-strong); font-size:11.5px; cursor:pointer; margin-left:auto;
+    font-weight:600; }
+  .filters .clear:hover { text-decoration:underline; }
+  /* ---------- scroll / layout ---------- */
+  #scroll { flex:1 1 auto; overflow-y:auto; scroll-behavior:smooth; }
+  .wrap { max-width:1040px; margin:0 auto; padding:26px 24px 12px; }
+  /* ---------- hero (empty state) ---------- */
+  .hero { text-align:center; padding:36px 8px 10px; }
+  .hero .mark { width:52px; height:52px; border-radius:14px; margin:0 auto 18px;
+    background:linear-gradient(145deg,#3b82f6,#2563eb); display:grid; place-items:center;
+    box-shadow:0 4px 14px rgba(180,85,53,.28); }
+  .hero .mark svg { width:28px; height:28px; }
+  .hero h2 { font:600 27px/1.2 var(--serif); margin:0 0 8px; }
+  .hero p { color:var(--muted); max-width:520px; margin:0 auto 22px; font-size:14.5px; }
+  .cards { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:0 auto 26px;
+    max-width:640px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:13px;
+    padding:14px 14px 13px; text-align:left; box-shadow:var(--shadow); }
+  .card .ic { font-size:17px; } .card h3 { margin:7px 0 3px; font-size:13px; }
+  .card p { color:var(--muted); font-size:12px; margin:0; }
+  .chips { display:flex; flex-wrap:wrap; gap:9px; justify-content:center; max-width:660px; margin:0 auto; }
+  .chip { background:var(--surface); border:1px solid var(--border-strong); border-radius:999px;
+    padding:8px 14px; font-size:13px; color:var(--text-soft); cursor:pointer; transition:.15s;
+    box-shadow:var(--shadow); }
+  .chip:hover { border-color:var(--accent); color:var(--accent-strong); background:var(--accent-soft); }
+  .chips .lbl { width:100%; text-align:center; color:var(--faint); font-size:11.5px;
+    text-transform:uppercase; letter-spacing:.08em; margin-bottom:2px; }
+  /* ---------- messages ---------- */
+  .msg { margin-bottom:22px; display:flex; }
+  .msg.user { justify-content:flex-end; }
+  .msg.user .bubble { background:var(--user); border:1px solid var(--border); border-radius:16px 16px 4px 16px;
+    padding:11px 15px; max-width:82%; color:var(--text); }
+  .msg.bot .bubble { width:100%; }
+  .assistant-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  /* The ExampleApp mark carries its own colours, so no tinted chip behind it. */
+  .assistant-head .av { width:22px; height:22px; display:grid; place-items:center; flex:0 0 auto; }
+  .assistant-head .av img { width:22px; height:22px; display:block; }
+  .assistant-head .nm { font-size:12.5px; font-weight:700; color:var(--text-soft); }
+  .answer { font-size:15px; color:var(--text); }
+  .answer p { margin:0 0 10px; } .answer p:last-child { margin-bottom:0; }
+  .answer h3 { font:600 17px/1.3 var(--serif); margin:15px 0 7px; }
+  .answer h4 { font:700 14px/1.35 var(--sans); margin:13px 0 6px; }
+  .answer h5 { font:700 12.5px/1.35 var(--sans); margin:11px 0 5px; color:var(--text-soft); }
+  .answer ul, .answer ol { margin:6px 0 11px; padding-left:22px; }
+  .answer li { margin:3px 0; }
+  .answer > :first-child { margin-top:0; }
+  .answer strong { font-weight:700; }
+  .answer .cite { color:var(--accent-strong); font-weight:700; cursor:pointer; text-decoration:none;
+    background:var(--accent-soft); padding:0 5px; border-radius:5px; font-size:12px; vertical-align:2%; }
+  .answer .cite:hover { background:var(--accent); color:#fff; }
+  /* Named citation — the document name as a downloadable link, a subtle inline chip. */
+  .answer .cite.named { display:inline-flex; align-items:center; vertical-align:middle;
+    background:var(--accent-soft); border:1px solid var(--border-strong); border-radius:999px;
+    padding:0 9px; font-weight:600; font-size:11.5px; color:var(--accent-strong);
+    white-space:nowrap; max-width:100%; }
+  .answer .cite.named:hover { background:var(--accent); color:#fff; border-color:var(--accent); }
+  /* sources */
+  .sources { margin-top:16px; }
+  .sources h4 { margin:0 0 9px; font-size:11px; color:var(--muted); text-transform:uppercase;
+    letter-spacing:.09em; display:flex; align-items:center; gap:7px; }
+  .sources h4 .cnt { background:var(--surface2); border:1px solid var(--border); border-radius:999px;
+    padding:1px 8px; color:var(--text-soft); letter-spacing:0; }
+  .src { background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding:11px 13px; margin-bottom:9px; box-shadow:var(--shadow); scroll-margin-top:80px; }
+  .src .top { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+  .src .n { font-weight:800; color:var(--accent-strong); font-size:12px; background:var(--accent-soft);
+    width:22px; height:22px; border-radius:6px; display:grid; place-items:center; flex:0 0 auto; }
+  .src .doc { font-weight:650; color:var(--text); word-break:break-word; font-size:13px; }
+  .femoji { font-size:14px; flex:0 0 auto; line-height:1; margin-left:2px; }
+  /* Document GRID — Matching documents, Sources, and Browse all share this table.
+     Auto layout: each column sizes to its content and never truncates. If the set of
+     columns is genuinely wider than the panel, the wrapper scrolls horizontally rather
+     than clipping text. */
+  .tbl-wrap { border:1px solid var(--border); border-radius:14px; overflow-x:auto;
+    box-shadow:var(--shadow); background:var(--surface); }
+  .doctable { width:100%; border-collapse:collapse; font-size:13px; table-layout:auto; }
+  .doctable thead th { text-align:left; font-size:10.5px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.05em; color:var(--muted); background:var(--surface2); padding:11px 16px;
+    border-bottom:1px solid var(--border); white-space:nowrap; }
+  /* Metadata cells stay on one line (codes, dates, types don't wrap); the name column
+     is the only one allowed to wrap, and it gets the flexible width. */
+  .doctable tbody td { padding:12px 16px; border-top:1px solid var(--border); vertical-align:middle;
+    color:var(--text-soft); white-space:nowrap; }
+  .doctable tbody tr:first-child td { border-top:none; }
+  .doctable tbody tr { transition:background .12s ease; }
+  .doctable tbody tr:hover { background:var(--accent-soft); }
+  .doctable th:first-child, .doctable td:first-child { width:100%; }  /* name takes the slack */
+  .doctable .tbl-name { display:flex; align-items:center; gap:9px; white-space:normal;
+    min-width:220px; }
+  .doctable .tbl-name .femoji { margin:0; opacity:.85; flex:0 0 auto; }
+  .doctable .tbl-name .doc { font-weight:650; color:var(--text); line-height:1.35;
+    word-break:break-word; }
+  .doctable .fbadge { white-space:nowrap; }   /* keep "2024-09-22" / "Draft" on one line */
+  .doctable .tbl-dash { color:var(--muted); }
+  /* An object code alone ("SUPPLIER0028") tells nobody which supplier it is; the name
+     read out of the document rides with it as a quieter second line rather than
+     stealing a whole column. */
+  .doctable .tbl-sub { display:block; color:var(--muted); font-size:11.5px; margin-top:2px; }
+  .doctable .tbl-act { text-align:right; width:1%; }
+  .tbl-open { text-decoration:none; color:var(--muted); border:1px solid var(--border);
+    border-radius:8px; width:30px; height:28px; display:inline-grid; place-items:center;
+    transition:all .12s ease; }
+  .tbl-open:hover { background:var(--accent); border-color:var(--accent); color:#fff; }
+  /* Open-in-new-tab arrow — sits at the right end of the card's title row. */
+  .openbtn { margin-left:auto; flex:0 0 auto; text-decoration:none; color:var(--accent-strong);
+    font-size:14px; font-weight:700; line-height:1; border:1px solid var(--border-strong);
+    border-radius:8px; width:28px; height:26px; display:inline-grid; place-items:center; }
+  .openbtn:hover { background:var(--accent-soft); border-color:var(--accent); }
+  .src .loc { color:var(--muted); font-size:12px; }
+  .badge { font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em;
+    padding:2px 8px; border-radius:999px; }
+  .badge.vector{ background:rgba(201,100,66,.12); color:var(--vector); }
+  .badge.keyword{ background:rgba(189,131,36,.14); color:var(--keyword); }
+  .badge.both{ background:rgba(122,103,171,.14); color:var(--both); }
+  .dl { margin-left:auto; font-size:12px; font-weight:600; color:var(--accent-strong);
+    text-decoration:none; border:1px solid var(--border-strong); padding:4px 11px; border-radius:8px; }
+  .dl:hover{ background:var(--accent-soft); border-color:var(--accent); }
+  .src .snip { color:var(--text-soft); font-size:12.5px; margin-top:7px; line-height:1.5; }
+  .meta { margin-top:14px; padding-top:11px; border-top:1px solid var(--border); color:var(--muted);
+    font-size:11.5px; font-variant-numeric:tabular-nums; display:flex; gap:15px; flex-wrap:wrap; align-items:center; }
+  .meta .k { display:inline-flex; align-items:center; gap:5px; }
+  .meta .grounded { color:var(--good); font-weight:600; }
+  /* thinking */
+  .think { display:flex; align-items:center; gap:11px; color:var(--muted); font-size:13.5px; }
+  .dots span { display:inline-block; width:6px; height:6px; margin:0 1.5px; border-radius:50%;
+    background:var(--accent); animation:blink 1.2s infinite both; }
+  .dots span:nth-child(2){animation-delay:.2s;} .dots span:nth-child(3){animation-delay:.4s;}
+  @keyframes blink { 0%,80%,100%{opacity:.25;} 40%{opacity:1;} }
+  /* ---------- browse ---------- */
+  .browsehead { color:var(--muted); font-size:13px; margin-bottom:14px; }
+  .browsehead b { color:var(--text); }
+  /* Loading / empty state sits centred in the page area, not tucked top-left. */
+  .browsehead.centered { text-align:center; font-size:15px; padding:22vh 0; margin-bottom:0; }
+  /* File-type badge — the document's real format, at a glance. */
+  .ftype { flex:0 0 auto; font:700 9.5px/1 var(--sans); letter-spacing:.04em; padding:4px 5px;
+    border-radius:4px; color:#64748b; background:#eef2f9; border:1px solid var(--border); }
+  .ftype.pdf  { color:#b91c1c; background:#fbe9e9; border-color:#f0c9c9; }
+  .ftype.doc  { color:#1d4ed8; background:#e6efff; border-color:#c7dbff; }
+  .ftype.xls  { color:#15803d; background:#e7f5ec; border-color:#bfe3cb; }
+  .ftype.ppt  { color:#b45309; background:#fdf2e2; border-color:#f0d9ae; }
+  .ftype.img  { color:#7c3aed; background:#f1e9fe; border-color:#ddd0fb; }
+  /* Clickable options when an answer asks the user to disambiguate. */
+  .followups { display:flex; flex-direction:column; gap:6px; margin-top:10px; }
+  .followups .lbl { font-size:11px; font-weight:700; letter-spacing:.05em;
+    text-transform:uppercase; color:var(--faint); }
+  .fups { display:flex; flex-wrap:wrap; gap:7px; }
+  .fup { text-align:left; border:1px solid var(--border-strong); background:var(--surface);
+    color:var(--accent-strong); border-radius:999px; padding:6px 13px; font:600 12.5px/1.35 var(--sans);
+    cursor:pointer; max-width:100%; transition:.15s; }
+  .fup:hover { background:var(--accent-soft); border-color:var(--accent); }
+  .fup:disabled { opacity:.5; cursor:default; }
+  /* Metadata chips — identical in the Matching-documents cards AND the Sources cards. */
+  .fbadge { font-size:10.5px; font-weight:650; padding:2px 8px; border-radius:999px;
+    background:var(--surface2); border:1px solid var(--border); color:var(--muted); }
+  .fbadge b { color:var(--text-soft); font-weight:700; }
+  .fbadge.status { color:var(--good); border-color:rgba(63,138,104,.3); background:rgba(63,138,104,.08); }
+  .fbadge.expiry { color:var(--good); border-color:rgba(63,138,104,.3); background:rgba(63,138,104,.08); }
+  .fbadge.expired { color:#b4432e; border-color:rgba(180,67,46,.32); background:rgba(180,67,46,.08); }
+  .pager { display:flex; align-items:center; justify-content:center; gap:16px; padding:8px 0 30px;
+    color:var(--muted); font-size:13px; font-variant-numeric:tabular-nums; }
+  .pager button { border-radius:9px; border:1px solid var(--border-strong); background:var(--surface);
+    color:var(--text-soft); font-weight:600; padding:8px 15px; font-size:13px; }
+  .pager button:hover:not([disabled]) { background:var(--surface2); border-color:var(--accent); color:var(--accent-strong); }
+  .pager button[disabled]{ opacity:.4; cursor:default; }
+  /* ---------- composer ---------- */
+  .composer { flex:0 0 auto; border-top:1px solid var(--border); padding:14px 20px 16px;
+    background:var(--raise); }
+  .composer .inner { max-width:1040px; margin:0 auto; }
+  .box { display:flex; gap:10px; align-items:flex-end; background:var(--surface);
+    border:1px solid var(--border-strong); border-radius:16px; padding:8px 8px 8px 15px;
+    box-shadow:var(--shadow); transition:.15s; }
+  .box:focus-within { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+  textarea { flex:1; resize:none; background:transparent; border:none; color:var(--text);
+    font-size:15px; font-family:inherit; max-height:190px; outline:none; padding:6px 0; line-height:1.5; }
+  textarea::placeholder { color:var(--faint); }
+  .sendbtn { width:38px; height:38px; border-radius:11px; border:none; background:var(--accent);
+    color:#fff; display:grid; place-items:center; flex:0 0 auto; transition:.15s; }
+  .sendbtn:hover { background:var(--accent-strong); } .sendbtn:disabled { opacity:.4; cursor:default; }
+  .sendbtn svg { width:18px; height:18px; }
+  /* Matches the product's .composer-hint. */
+  .hint { text-align:center; color:var(--muted); font-size:11.5px; margin-top:6px; line-height:1.5; }
+  @media (max-width:640px){ .cards{ grid-template-columns:1fr; } .brand .sub{ display:none; } }
+  /* Keep the 40px band intact as it narrows. The chip carries its detail in a tooltip,
+     so only the breadcrumb needs to go. */
+  @media (max-width:860px){ .brand h1 { display:none; } }
+  /* ---------- credit chip ----------
+     Mirrors the product's .budget-chip. Three states by % REMAINING, using the
+     product's --ok/--warn/--bad palette: >40 green, 10-40 orange, <=10 red.
+     The exact balance lives in the hover tooltip (title), like the product's chip. */
+  :root { --warn:#d0892a; --danger:#b4432e; }
+  /* Deployed-agent switch. Quiet until it is on, then unmistakable: answering
+     from AWS instead of this process is worth noticing mid-demo. */
+  .agentbox { flex:0 0 auto; display:flex; align-items:center; gap:6px; }
+  .agenttoggle { display:flex; align-items:center; gap:5px; cursor:pointer;
+    font-size:11.5px; font-weight:600; white-space:nowrap; border-radius:999px;
+    padding:3px 10px; color:#5b6670; background:#f1f3f4; border:1px solid #dfe3e6;
+    transition:color .2s ease, background .2s ease, border-color .2s ease; }
+  .agenttoggle input { margin:0; cursor:pointer; }
+  .agentbox.on .agenttoggle { color:#0b6b63; background:#e4f4f1; border-color:#9fd6cd; }
+  .agentsel { font-size:11.5px; font-weight:600; border-radius:999px; padding:3px 8px;
+    color:#5b6670; background:#fff; border:1px solid #dfe3e6; cursor:pointer; }
+  .agentbox:not(.on) .agentsel { display:none; }
+  .meter { flex:0 0 auto; white-space:nowrap; cursor:help; font-variant-numeric:tabular-nums;
+    font-size:11.5px; font-weight:600; border-radius:999px; padding:3px 10px;
+    color:#15803d; background:#e7f5ec; border:1px solid #bfe3cb;
+    transition:color .3s ease, background .3s ease, border-color .3s ease; }
+  .meter.low   { color:#b45309; background:#fdf2e2; border-color:#f0d9ae; }
+  .meter.spent { color:#b91c1c; background:#fbe9e9; border-color:#f0c9c9; }
+  /* ---------- 90% warning banner ---------- */
+  .warnbanner { display:none; align-items:center; gap:10px; padding:9px 20px; font-size:12.5px;
+    background:rgba(208,137,42,.1); border-bottom:1px solid rgba(208,137,42,.28); color:#8a5a12; }
+  .warnbanner.show { display:flex; }
+  .warnbanner b { font-weight:700; }
+  .warnbanner .x { margin-left:auto; cursor:pointer; color:#8a5a12; opacity:.7; font-size:14px; line-height:1; }
+  .warnbanner .x:hover { opacity:1; }
+  /* ---------- credits used chip in the answer footer ---------- */
+  .meta .k.credits { color:var(--accent-strong); font-weight:700; cursor:help;
+    background:var(--accent-soft); border-radius:6px; padding:1px 8px; }
+  /* ---------- per-answer feedback ---------- */
+  .fb { margin-top:11px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .fb-q { font-size:12px; color:var(--muted); }
+  .fb-btn { background:var(--surface); border:1px solid var(--border); border-radius:8px;
+    padding:3px 10px; font-size:14px; line-height:1; cursor:pointer; transition:border-color .15s; }
+  .fb-btn:hover { border-color:var(--accent); background:var(--surface2); }
+  .fb-thanks { font-size:12px; color:var(--good); font-weight:600; }
+  .fb-q em { font-style:normal; color:var(--danger); font-weight:600; }
+  .fb-comment { flex:1; min-width:180px; max-width:380px; background:var(--surface);
+    border:1px solid var(--border-strong); border-radius:8px; padding:5px 10px; font-size:12.5px;
+    font-family:inherit; color:var(--text-soft); }
+  .fb-comment:focus { outline:none; border-color:var(--accent); }
+  .fb-comment.bad { border-color:var(--danger); }
+  .fb-comment.bad::placeholder { color:var(--danger); }
+  .fb-send { background:var(--accent); color:#fff; border:none; border-radius:8px; padding:5px 14px;
+    font-size:12px; font-weight:600; cursor:pointer; }
+  .fb-send:hover { background:var(--accent-strong); }
+  .fb-cancel { background:none; border:none; color:var(--muted); font-size:14px; cursor:pointer; padding:4px 6px; }
+  .fb-cancel:hover { color:var(--text); }
+  /* ---------- out-of-credits modal ---------- */
+  .overlay { position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center;
+    background:rgba(40,34,25,.42); backdrop-filter:blur(3px); padding:20px; }
+  .overlay.show { display:flex; }
+  .modal { background:var(--surface); border:1px solid var(--border); border-radius:18px; max-width:420px;
+    width:100%; padding:26px 26px 22px; box-shadow:0 18px 50px rgba(40,34,25,.25); text-align:center; }
+  .modal .ic { width:54px; height:54px; border-radius:14px; margin:0 auto 14px; display:grid; place-items:center;
+    font-size:26px; background:linear-gradient(145deg,#3b82f6,#2563eb); box-shadow:0 4px 14px rgba(37,99,235,.3); }
+  .modal h3 { font:600 20px/1.2 var(--serif); margin:0 0 8px; }
+  .modal p { color:var(--muted); font-size:13.5px; margin:0 0 16px; }
+  .modal .feats { list-style:none; padding:0; margin:0 0 20px; text-align:left; display:flex;
+    flex-direction:column; gap:8px; }
+  .modal .feats li { font-size:13px; color:var(--text-soft); display:flex; align-items:center; gap:9px; }
+  .modal .feats li .tick { color:var(--good); font-weight:800; }
+  .modal .actions { display:flex; gap:9px; justify-content:center; }
+  .modal .actions .btn { flex:1; padding:10px 14px; }
+</style>
+</head>
+<body>
+  <div class="stickyhead">
+  <div class="topbar">
+    <span class="brandname">Example Co</span>
+  </div>
+  <header>
+    <div class="brand">
+      <div>
+        <h1>DocuSearch Assistant <span class="crumb" id="crumb">&rsaquo; Ask Documents</span></h1>
+      </div>
+    </div>
+    <div class="right">
+      <button id="browseDocs" class="fltbtn" title="Open the full document browser in a new tab — this chat stays where it is.">Browse Documents <span class="ext">↗</span></button>
+      <button id="filterToggle" class="fltbtn" title="Narrow answers and documents by metadata (status, business object, regulation, type, …). Click to show or hide the filters.">⚑ Filters</button>
+      <button class="btn primary" id="newchat">＋ New chat</button>
+      <!-- Only shown when SEARCH_AGENT_RUNTIME_ARN names a deployed runtime. -->
+      <span class="agentbox" id="agentBox" hidden>
+        <label class="agenttoggle" title="Answer from the deployed AgentCore agent — the same path ExampleApp calls — instead of this service's local pipeline.">
+          <input type="checkbox" id="agentOn"> Deployed agent
+        </label>
+        <select id="agentTenant" class="agentsel" title="Which ExampleApp tenant the agent should answer as."></select>
+      </span>
+      <span class="meter" id="meter" title="Connecting…">Credits Remaining: —</span>
+      <div class="menu" id="hdrMenu">
+        <button class="menubtn" id="menuBtn" title="Index &amp; session details">⋯</button>
+        <div class="menu-pop" id="menuPop">
+          <span class="stat" id="idxStat" title="Documents and passages currently indexed"></span>
+          <span class="timer" id="timer"></span>
+          <span class="timer" id="sessCred"
+            title="Credits this browser tab has spent since it was opened. Resets on refresh — the shared pool balance does not.">Session credits used: 0</span>
+        </div>
+      </div>
+    </div>
+  </header>
+  </div>
+
+  <div class="warnbanner" id="warnBanner">
+    <span id="warnText"></span>
+    <span class="x" id="warnClose" title="Dismiss">✕</span>
+  </div>
+
+  <div class="filters" id="filters">
+    <span class="lbl" id="filterLbl">Filter:</span>
+    <span class="lbl" id="nofacets" style="font-weight:400;">— indexing… metadata filters appear here</span>
+  </div>
+
+  <div id="scroll">
+    <div class="wrap" id="messages">
+      <div id="empty">
+        <div class="hero">
+          <div class="mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>
+            </svg>
+          </div>
+          <h2>Ask your documents</h2>
+          <p>DocuSearch Assistant searches across your documents.</p>
+          <div class="chips" id="chips">
+            <span class="lbl">Try asking</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="wrap" id="browse" style="display:none;">
+      <div class="browsehead" id="browseHead">Loading documents…</div>
+      <div id="docList"></div>
+      <div class="pager" id="pager" style="display:none;">
+        <button id="prev">← Prev</button>
+        <span id="pageInfo"></span>
+        <button id="next">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="composer" id="composer">
+    <div class="inner">
+      <div class="box">
+        <textarea id="input" rows="1" placeholder="Ask about your documents…"></textarea>
+        <button class="sendbtn" id="send" title="Send (Enter)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+        </button>
+      </div>
+      <div class="hint">The answers provided are grounded on the documents. As with any AI tools, the response generated is not guaranteed to be accurate or up-to-date. Please verify the information against the source provided/independently. You may optionally provide feedback by clicking on thumbs up/down.</div>
+    </div>
+  </div>
+
+  <div class="overlay" id="oocModal">
+    <div class="modal">
+      <div class="ic">🔒</div>
+      <h3 id="oocTitle">You've exhausted your limit</h3>
+      <p id="oocMsg">You have exhausted your credit limit. Please contact your administrator to reset the limit.</p>
+      <div class="actions">
+        <button class="btn primary" id="oocClose">OK</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => (s||"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let sessionId = null, busy = false, currentFilters = {}, view = "chat";
+let browseOffset = 0, browseTotal = 0;
+let lastQuestion = "";   // the question the newest answer is for (drives highlighting)
+const BROWSE_LIMIT = 100;
+const FACET_LABEL = { document_class:"Type", business_unit:"Business unit", sub_category:"Sub-category",
+  business_object:"Business object", object_code:"Object code", object_name:"Object name",
+  meta_data_name:"Metadata", created_by:"Created by" };
+const label = (k) => FACET_LABEL[k] || k.charAt(0).toUpperCase()+k.slice(1).replace(/_/g," ");
+const FACET_ORDER = ["status","business_object","object_code","supplier","object_name","category",
+  "sub_category","meta_data_name","tenant","created_by","regulation","document_class","language"];
+// Facets hidden from the filter bar (still searchable via the question / used elsewhere).
+// Facets hidden from the filter BAR only. Functionality is unaffected: the query router
+// and facet detection still apply these from natural language ("documents by tenant X",
+// "regulation ISO9001", "all certificates") — only the manual dropdown chips are hidden.
+const HIDDEN_FACETS = new Set([
+  "object_name", "meta_data_name", "language",
+  "tenant", "created_by", "regulation", "document_class",
+]);
+// Chips shown on a document card. A whitelist, not a blacklist: every facet used to be
+// rendered, which buried the answer under ~12 chips. Everything else moves to the card's
+// hover tooltip — still available, just not shouting. Expiry is handled separately.
+const CARD_FACETS = ["status", "business_object", "object_code", "document_class"];
+// DEFAULT columns of the document GRID, when the question doesn't ask by a specific facet.
+const DOC_COLS = ["status", "business_object", "object_code", "document_class"];
+// Columns adapt to the question: whatever facets/expiry the user asked by (carried in the
+// server's `documents_query`) lead, then defaults fill the rest. So "how many are expired"
+// surfaces an Expiry Date column; "certificates for supplier X" surfaces Supplier; a plain
+// question falls back to the defaults. Capped so the grid never overflows.
+function docColumns(data) {
+  const q = (data && data.documents_query) || {};
+  const cols = [];
+  const add = k => { if (k && !cols.includes(k)) cols.push(k); };
+  for (const k of Object.keys(q)) {
+    if (k === "expiry_from" || k === "expiry_to" || k === "expiry_date") add("expiry_date");
+    else add(k);                       // the exact facet the user filtered/asked by
+  }
+  DOC_COLS.forEach(add);               // then the defaults
+  return cols.slice(0, 5);
+}
+// Crisp "open in new tab" glyph (box + out-arrow) — the ↗ unicode char rendered as a
+// hairline that read like an edit pencil.
+const OPEN_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none"
+  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <path d="M15 3h6v6"/><path d="M10 14 21 3"/>
+  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>`;
+// Hover tooltips explaining what each filter does.
+const FACET_DESC = {
+  status:"Only include documents with this status (e.g. Active, Draft, Archive).",
+  business_object:"Only include this business-object type (e.g. COMPLAINTS, PIF, SUPPLIERDOCUMENTS).",
+  object_code:"Only include this object code (e.g. SUPPLIER0005, PIF0171).",
+  supplier:"Only include documents for this supplier, by the company name printed on the documents.",
+  category:"Only include this document category.",
+  tenant:"Only include documents for this tenant / organisation.",
+  created_by:"Only include documents created by this person.",
+  regulation:"Only include documents citing this regulation or standard (e.g. FSSC 22000, ISO 9001, HACCP).",
+  document_class:"Only include this document type (certificate, specification, report, standard, …).",
+};
+const facetDesc = (k) => FACET_DESC[k] || ("Filter by " + label(k).toLowerCase() + ".");
+const num = (n) => Number(n).toLocaleString();
+const money = (n) => "$" + Number(n).toFixed(Number(n) < 0.01 ? 5 : 4);
+const round2 = (n) => Math.round(Number(n) * 100) / 100;
+
+/* ---------- credit meter (server is authoritative — never computed here) ---------- */
+let credit = { balance: null, plan_total: null, percent_remaining: 100 };
+let outOfCredits = false, warnDismissed = false, oocAutoShown = false;
+
+function renderMeter(c) {
+  if (!c) return;
+  credit = { balance: c.balance, plan_total: c.plan_total, percent_remaining: c.percent_remaining };
+  const pct = Math.max(0, Math.min(100, Number(c.percent_remaining ?? 100)));
+  const used = 100 - pct;
+  outOfCredits = Number(c.balance) <= 0;
+  const m = $("meter");
+  m.textContent = `Credits Remaining: ${Math.round(pct)}%`;
+  // Exact balance on hover, so the chip itself stays short.
+  m.title = `${num(round2(c.balance ?? 0))} / ${num(round2(c.plan_total ?? 0))} credits remaining`;
+  // Dynamic state by % remaining: >40 green, 10-40 orange, <=10 red.
+  m.classList.toggle("low", pct > 10 && pct <= 40);
+  m.classList.toggle("spent", pct <= 10);
+  // Out of credits → show the validation dialog once (covers all browsers via the
+  // poll, not only the one that spent the last credit).
+  if (outOfCredits && !oocAutoShown) { openOOC(); oocAutoShown = true; }
+  if (!outOfCredits) oocAutoShown = false;
+  // 90%-used warning (once, until it recovers or the user dismisses it).
+  if (used >= 90 && !outOfCredits && !warnDismissed) {
+    $("warnText").innerHTML = `⚠️ You've used <b>${Math.floor(used)}%</b> of your session credits — running low.`;
+    $("warnBanner").classList.add("show");
+  } else {
+    $("warnBanner").classList.remove("show");
+    if (used < 90) warnDismissed = false;
+  }
+}
+
+async function loadCredits() {
+  try { renderMeter(await (await fetch("/api/credits/balance")).json()); }
+  catch { $("meter").title = "Offline — could not reach the server."; }
+}
+
+/* Credits spent by THIS browser tab. Held in memory only (never persisted), so a
+   refresh resets it to 0 — unlike the shared pool balance, which is server-side. */
+let sessCredits = 0;
+function addSessionCredits(n) {
+  sessCredits += Number(n) || 0;
+  $("sessCred").textContent = `Session credits used: ${num(round2(sessCredits))}`;
+}
+
+function openOOC(msg) {
+  if (msg) $("oocMsg").textContent = msg;
+  $("oocModal").classList.add("show");
+}
+function closeOOC() { $("oocModal").classList.remove("show"); }
+
+async function upgradePlan() {
+  const btn = $("oocUpgrade"); btn.disabled = true; btn.textContent = "Upgrading…";
+  try {
+    const c = await (await fetch("/api/credits/upgrade", { method: "POST" })).json();
+    warnDismissed = false; renderMeter(c); closeOOC();
+  } catch { /* leave modal open on failure */ }
+  finally { btn.disabled = false; btn.textContent = "Upgrade to Pro"; }
+}
+
+
+// Verified against the indexed corpus (Acme Foods supplier compliance) so every
+// suggestion returns a grounded answer for demos.
+// Generic fallbacks used only before any metadata has loaded (or an empty index).
+const SUGGESTIONS_FALLBACK = [
+  "Which documents are expired?",
+  "List the documents currently in Draft status",
+  "Summarise what's in the indexed documents",
+];
+// Real document names used to seed CONTENT questions. Sampled from the documents the
+// ACTIVE FILTERS select (not the whole corpus), so a content suggestion always names a
+// document that is actually in view — re-fetched whenever the selection changes.
+let _sampleDocNames = [];
+async function loadSampleDocs() {
+  try {
+    const p = new URLSearchParams(currentFilters);
+    p.set("limit", "30");
+    const d = await (await fetch("/v1/documents?" + p.toString())).json();
+    // Clean the name BEFORE the length test — the raw key carries a 13-char id prefix, so
+    // testing the raw form discarded documents whose actual name is perfectly short.
+    const names = (d.documents || [])
+      .map(x => docDisplayName(x.source_key)).filter(n => n && n.length <= 60);
+    const counts = new Map();
+    names.forEach(n => { const k = _subjectKey(n); counts.set(k, (counts.get(k) || 0) + 1); });
+    const good = names.filter(n => _goodSubject(n, counts));
+    _sampleDocNames = good.length ? good : names;
+  } catch { _sampleDocNames = []; }
+}
+// Question shapes whose answer must come from INSIDE the document — its text — rather
+// than from its facets. Varied so two content chips never read as the same question.
+const CONTENT_SHAPES = [
+  (n) => `What does "${n}" cover?`,
+  (n) => `What requirements does "${n}" specify?`,
+  (n) => `Summarise the key points of "${n}"`,
+];
+const SUGGEST_MAX = 6;          // chips shown in total
+const SUGGEST_CONTENT_MAX = 2;  // of which this many are reserved for content questions
+// Spread the picks across the sampled list instead of taking the first N — adjacent
+// documents often share a name stem (same supplier, sequential revisions), which would
+// make two content chips look like the same question.
+function contentSuggestions(limit) {
+  const names = _sampleDocNames;
+  if (!names.length) return [];
+  const out = [], seen = new Set();
+  for (let i = 0; i < limit; i++) {
+    const name = names[Math.floor((i * names.length) / limit)];
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    out.push(CONTENT_SHAPES[out.length % CONTENT_SHAPES.length](name));
+  }
+  return out;
+}
+const _firstVals = (arr, n) => [...new Set(arr || [])].slice(0, n);
+// Facets a suggestion may be seeded from, in the order they're offered. `document_class`
+// is deliberately absent: its vocabulary includes the literal value "other", which turned
+// into the nonsense chip "List all other documents".
+const SUGGEST_FACETS = ["status", "business_object", "object_code", "category"];
+// "status Active", "business object COMPLAINTS" — the phrasing shared by every chip.
+const facetPhrase = (k, v) => `${label(k).toLowerCase()} ${v}`;
+// Longest selection description we'll still hang an extra facet off; past this the chip
+// stops being readable at the 660px chip-row width.
+const SUGGEST_DESC_MAX = 60;
+// First cascaded value for facet `k` that no other chip has used yet. Facets overlap in
+// this corpus (category "Complaints" and business object "COMPLAINTS" select virtually the
+// same documents), so two chips built on the same value read as the same question twice
+// even though the facets differ. `used` holds lower-cased values already spoken for.
+function pickFacetValue(fv, k, used) {
+  for (const v of _firstVals(fv[k], 8)) {
+    if (v && !used.has(String(v).toLowerCase())) return v;
+  }
+  return null;
+}
+// Build suggestions from the ACTUAL indexed data (cascaded facet values) and the current
+// filter selection — never hardcoded. Adapts as the index and the active filters change.
+function buildSuggestions() {
+  const fv = facetValues || {};
+  const active = Object.entries(currentFilters);
+  const out = [];
+  const used = new Set();   // facet values already spoken for, so no chip repeats one
+
+  if (active.length) {
+    // Filters active: every chip is scoped to the selection, so each one differs from the
+    // unfiltered set AND from what a different filter would produce.
+    active.forEach(([, v]) => used.add(String(v).toLowerCase()));
+    const desc = active.map(([k, v]) => facetPhrase(k, v)).join(" and ");
+    out.push(`How many documents have ${desc}?`);
+    out.push(`List the documents with ${desc}`);
+    out.push(`Which documents with ${desc} are expired?`);
+    // Then add ONE unpinned dimension at a time. A pinned facet is never seeded from: the
+    // cascade narrows its vocabulary to just the selected value, so a question about it
+    // would only restate the two chips above in different words (the bug this fixes).
+    // Values come from the cascaded vocabulary, so each combination still matches at
+    // least one indexed document instead of dead-ending on an empty result.
+    if (desc.length <= SUGGEST_DESC_MAX) {
+      for (const k of SUGGEST_FACETS) {
+        if (k in currentFilters) continue;
+        const v = pickFacetValue(fv, k, used);
+        if (!v) continue;
+        used.add(String(v).toLowerCase());
+        out.push(`List the documents with ${desc} and ${facetPhrase(k, v)}`);
+      }
+    }
+  } else {
+    // No filters: one question per facet, each on a different dimension and a different
+    // value, so no two chips select the same documents.
+    const take = (k) => { const v = pickFacetValue(fv, k, used); if (v) used.add(String(v).toLowerCase()); return v; };
+    const status = take("status");
+    if (status) out.push(`List the documents currently in ${status} status`);
+    const bo = take("business_object");
+    if (bo) out.push(`Which documents belong to business object ${bo}?`);
+    const oc = take("object_code");
+    if (oc) out.push(`Show the documents for object code ${oc}`);
+    const cat = take("category");
+    if (cat) out.push(`How many ${cat} documents are there?`);
+    out.push("Which documents are expired?");
+  }
+  // Content questions get their own reserved slots — filtered or not — so the suggestions
+  // are never purely metadata lookups. They're seeded from documents inside the current
+  // selection, so they stay answerable as the filters change.
+  const content = contentSuggestions(SUGGEST_CONTENT_MAX);
+  const picked = [...new Set([...out.slice(0, SUGGEST_MAX - content.length), ...content])];
+  return picked.length ? picked : SUGGESTIONS_FALLBACK.slice(0, 5);
+}
+
+function renderChips() {
+  const box = $("chips");
+  if (!box) return;
+  box.querySelectorAll(".chip").forEach(e => e.remove());   // keep the "Try asking" label
+  buildSuggestions().forEach(q => {
+    const c = document.createElement("span"); c.className = "chip"; c.textContent = q;
+    c.onclick = () => { switchView("chat"); $("input").value = q; autosize(); send(); };
+    box.appendChild(c);
+  });
+}
+
+async function loadStats() {
+  try {
+    const s = await (await fetch("/v1/stats")).json();
+    const d = await (await fetch("/v1/documents?limit=1")).json();
+    const docs = d.total || 0, passages = s.vector_chunks || 0;
+    $("idxStat").innerHTML = `<span class="dot"></span>${num(docs)} docs · ${num(passages)} passages`;
+  } catch { $("idxStat").innerHTML = `<span class="dot" style="background:var(--faint)"></span>connecting…`; }
+}
+
+/* Size each filter box to its own placeholder, measured in the real font. A fixed width
+   guesses, and guesses clip: "Any business object" is what got cut. Canvas measureText is
+   exact, so no facet name — present or future — can overflow its box. */
+const textWidth = (() => {
+  const ctx = document.createElement("canvas").getContext("2d");
+  return (text, font) => { ctx.font = font; return ctx.measureText(text).width; };
+})();
+function fitFilterWidth(inp) {
+  const cs = getComputedStyle(inp);
+  const font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  const chrome = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight)
+               + parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
+  // A selected value ("SUPPLIERDOCUMENTS") is often longer than the placeholder, so fit
+  // whichever is currently showing.
+  const w = Math.ceil(textWidth(inp.value || inp.placeholder, font) + chrome + 2);
+  inp.style.width = Math.max(92, Math.min(220, w)) + "px";
+}
+/* Webfonts land after first paint; anything measured against the fallback face is wrong,
+   so re-fit once Inter is actually active. */
+if (document.fonts?.ready) {
+  document.fonts.ready.then(() => document.querySelectorAll("input.ffilter").forEach(fitFilterWidth));
+}
+
+// Cascaded facet options, keyed by facet. Refreshed from the server whenever a filter
+// changes so the dropdowns stay interdependent (status=Draft narrows the rest to Draft).
+let facetValues = {};
+function facetsUrl() {
+  const p = new URLSearchParams(currentFilters);   // active selections cascade the options
+  const s = p.toString();
+  return "/v1/facets" + (s ? "?" + s : "");
+}
+// Render one dropdown's options from the current (cascaded) values, filtered by any typed
+// substring. Reads the shared facetValues so a refresh is reflected without rebuilding DOM.
+function renderFacetOpts(inp, drop) {
+  const values = facetValues[inp.dataset.facet] || [];
+  const q = inp.value.trim().toLowerCase();
+  const hits = values.filter(v => !q || v.toLowerCase().includes(q));
+  drop.innerHTML = hits.length
+    ? hits.slice(0, 200).map(v => `<div class="opt" data-v="${esc(v)}">${esc(v)}</div>`).join("")
+    : `<div class="none">No matches</div>`;
+}
+// Re-fetch cascaded values for the current selection and refresh option lists in place
+// (no DOM rebuild, so focus/typing isn't disrupted). Any open dropdown re-renders now.
+async function refreshFacetValues() {
+  try { facetValues = (await (await fetch(facetsUrl())).json()) || {}; } catch { return; }
+  document.querySelectorAll("#filters .fwrap").forEach(w => {
+    const inp = w.querySelector(".ffilter"), drop = w.querySelector(".fdrop");
+    if (inp && drop && drop.classList.contains("open")) renderFacetOpts(inp, drop);
+  });
+  renderChips();   // suggestions follow the (now cascaded) facet values + active filters
+  // Content chips name real documents, so re-sample from the NEW selection and redraw.
+  loadSampleDocs().then(renderChips);
+}
+
+async function loadFacets() {
+  try { facetValues = (await (await fetch(facetsUrl())).json()) || {}; } catch { facetValues = {}; }
+  renderChips();   // regenerate example questions from the real facet vocabulary
+  const bar = $("filters");
+  bar.querySelectorAll(".fwrap,.clear,#nofacets").forEach(e => e.remove());
+  const keys = Object.keys(facetValues)
+    .filter(k => !HIDDEN_FACETS.has(k))
+    .sort((a,b) =>
+      (FACET_ORDER.indexOf(a)<0?99:FACET_ORDER.indexOf(a)) - (FACET_ORDER.indexOf(b)<0?99:FACET_ORDER.indexOf(b)));
+  if (!keys.length) {
+    const s=document.createElement("span"); s.className="lbl"; s.id="nofacets"; s.style.fontWeight="400";
+    s.textContent="— indexing… metadata filters appear here"; bar.appendChild(s); return;
+  }
+  for (const k of keys) {
+    const wrap = document.createElement("div"); wrap.className = "fwrap"; wrap.dataset.facet = k;
+    const inp = document.createElement("input"); inp.className = "ffilter"; inp.dataset.facet = k;
+    inp.setAttribute("autocomplete", "off");
+    // Just the facet name — the bar is already labelled "Filter documents:", and the
+    // "Any " prefix made the longest placeholder ("Any business object") overflow the box.
+    inp.placeholder = label(k);
+    inp.title = facetDesc(k);   // hover explains what this filter does
+    const clrBtn = document.createElement("button"); clrBtn.className = "fclear";
+    clrBtn.type = "button"; clrBtn.textContent = "✕"; clrBtn.title = "Clear this filter";
+    const drop = document.createElement("div"); drop.className = "fdrop";
+
+    const apply = (val) => {
+      if (val) currentFilters[k] = val; else delete currentFilters[k];
+      inp.value = val || "";
+      wrap.classList.toggle("has-value", !!val);
+      fitFilterWidth(inp);   // grow/shrink to the new value so it's never clipped
+      updateFilterBadge();
+      if (view === "browse") { browseOffset = 0; loadDocuments(); }
+      refreshFacetValues();  // cascade: narrow the OTHER dropdowns to co-occurring values
+    };
+    inp.onfocus = () => { renderFacetOpts(inp, drop); drop.classList.add("open"); };
+    inp.oninput = () => { renderFacetOpts(inp, drop); drop.classList.add("open");
+                          wrap.classList.toggle("has-value", !!inp.value); };
+    inp.onkeydown = (e) => {
+      if (e.key === "Escape") { drop.classList.remove("open"); inp.blur(); }
+      else if (e.key === "Enter") {
+        const o = drop.querySelector(".opt");
+        if (o) { apply(o.dataset.v); drop.classList.remove("open"); inp.blur(); }
+      }
+    };
+    inp.onblur = () => setTimeout(() => {
+      drop.classList.remove("open");
+      const typed = inp.value.trim();
+      if (!typed) return apply("");                     // emptied (backspace) => filter cleared
+      const canon = new Map((facetValues[k]||[]).map(v => [v.toLowerCase(), v]));  // case-insensitive
+      const exact = canon.get(typed.toLowerCase());
+      if (exact) { apply(exact); return; }
+      const cur = currentFilters[k] || "";              // partial text => revert to what's applied
+      inp.value = cur; wrap.classList.toggle("has-value", !!cur);
+    }, 160);
+    // mousedown + preventDefault keeps focus so blur doesn't close the list first.
+    drop.onmousedown = (e) => {
+      const o = e.target.closest(".opt"); if (!o) return;
+      e.preventDefault(); apply(o.dataset.v); drop.classList.remove("open");
+    };
+    clrBtn.onmousedown = (e) => { e.preventDefault(); apply(""); };
+
+    if (currentFilters[k]) { inp.value = currentFilters[k]; wrap.classList.add("has-value"); }
+    wrap.append(inp, clrBtn, drop);
+    bar.appendChild(wrap);
+    fitFilterWidth(inp);   // must be in the DOM first — getComputedStyle needs it
+  }
+  const clr=document.createElement("span"); clr.className="clear"; clr.textContent="Clear filters";
+  clr.onclick=()=>{ currentFilters={};
+    bar.querySelectorAll(".fwrap").forEach(w => {
+      w.classList.remove("has-value"); const i = w.querySelector("input"); if (i) i.value = "";
+    });
+    updateFilterBadge();
+    if (view === "browse") { browseOffset = 0; loadDocuments(); }
+    refreshFacetValues(); };   // reset the cascade back to the full vocabulary
+  bar.appendChild(clr);
+}
+
+function switchView(v) {
+  view = v;
+  $("messages").style.display = v === "chat" ? "" : "none";
+  $("browse").style.display = v === "browse" ? "" : "none";
+  $("composer").style.display = v === "chat" ? "" : "none";
+  $("newchat").style.display = v === "chat" ? "" : "none";
+  $("timer").style.display = v === "chat" ? "" : "none";
+  $("filterLbl").textContent = v === "chat" ? "Filter answers:" : "Filter documents:";
+  $("filters").classList.toggle("collapsed", v !== "browse");  // shown in Browse, toggled in Ask
+  updateFilterBadge();
+  if (v === "browse") { browseOffset = 0; loadDocuments(); }
+}
+
+/* ---------- chat ---------- */
+function fmtAnswer(text, cites) {
+  // Lightweight Markdown -> HTML: headings, bullet/numbered lists, bold, citations.
+  // Inline [n] renders the DOCUMENT NAME as a link that OPENS/downloads the document in a
+  // new tab (not a bare number).
+  const citeByIdx = {};
+  (cites || []).forEach(c => { citeByIdx[c.index] = c; });
+  const citeLink = (n) => {
+    const c = citeByIdx[n];
+    // No source for this marker (a de-duped or hallucinated index): strip it rather
+    // than show a bare "[n]" number the user can't act on. Sources are only ever the
+    // document NAME as a download link, never a reference number.
+    if (!c) return "";
+    const name = fileNameNoExt(c.source_key || c.document_id || "");
+    const short = name.length > 30 ? name.slice(0, 29) + "…" : name;
+    const href = c.download_url || `#src-${n}`;
+    const tgt = c.download_url ? ' target="_blank" rel="noopener"' : "";
+    return `<a class="cite named" href="${esc(href)}"${tgt} title="Open ${esc(name)}">${esc(short)}</a>`;
+  };
+  const inline = (s) => esc(s)
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    // Consume an optional leading space so a stripped marker leaves no " ." artefact;
+    // a real citation re-adds the single separating space.
+    .replace(/ ?\[(\d+)\]/g, (_m, n) => {
+      const link = citeLink(parseInt(n, 10));
+      return link ? " " + link : "";
+    });
+  let html = "", listTag = null;
+  const closeList = () => { if (listTag) { html += "</" + listTag + ">"; listTag = null; } };
+  // Which list a line would open, if any — lets a blank line INSIDE a list be told apart
+  // from one that ends it.
+  const listKind = (s) => /^\s*[-*•]\s+/.test(s) ? "ul" : (/^\s*\d+[.)]\s+/.test(s) ? "ol" : null);
+  const lines = (text || "").split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].replace(/\s+$/, "");
+    if (!line.trim()) {
+      // Models space their numbered lists with a blank line between items. Closing the
+      // list there opened a fresh <ol> per item, so every one rendered as "1." — the
+      // list only really ends when the next non-blank line isn't another item of it.
+      const next = lines.slice(i + 1).find((l) => l.trim());
+      if (!listTag || listKind(next || "") !== listTag) closeList();
+      continue;
+    }
+    let m;
+    if ((m = line.match(/^\s*(#{1,6})\s+(.*)$/))) {            // # heading
+      closeList();
+      const tag = m[1].length <= 1 ? "h3" : m[1].length === 2 ? "h4" : "h5";
+      html += "<" + tag + ">" + inline(m[2]) + "</" + tag + ">";
+    } else if ((m = line.match(/^\s*[-*•]\s+(.*)$/))) {        // - bullet
+      if (listTag !== "ul") { closeList(); html += "<ul>"; listTag = "ul"; }
+      html += "<li>" + inline(m[1]) + "</li>";
+    } else if ((m = line.match(/^\s*\d+[.)]\s+(.*)$/))) {       // 1. numbered
+      if (listTag !== "ol") { closeList(); html += "<ol>"; listTag = "ol"; }
+      html += "<li>" + inline(m[1]) + "</li>";
+    } else {                                                    // paragraph
+      closeList();
+      html += "<p>" + inline(line) + "</p>";
+    }
+  }
+  closeList();
+  return html;
+}
+function addUser(text) {
+  $("empty")?.remove();
+  const el = document.createElement("div"); el.className = "msg user";
+  el.innerHTML = `<div class="bubble">${esc(text)}</div>`;
+  $("messages").appendChild(el); scrollDown();
+}
+/* One definition, used by both the "searching" state and the finished answer, so the
+   branding can't drift between them. */
+const exampleAppHead = () =>
+  `<div class="assistant-head"><span class="av"><img src="/favicon.svg" alt=""></span>` +
+  `<span class="nm">ExampleApp</span></div>`;
+
+const STAGES = ["Searching your documents…","Reading the most relevant passages…","Composing a grounded answer…"];
+let stageInt = null;
+function addThinking() {
+  const el = document.createElement("div"); el.className = "msg bot"; el.id = "thinking";
+  el.innerHTML = `<div class="bubble">${exampleAppHead()}<div class="think">
+    <span class="dots"><span></span><span></span><span></span></span>
+    <span id="stageText">${STAGES[0]}</span></div></div>`;
+  $("messages").appendChild(el); scrollDown();
+  let i = 0; clearInterval(stageInt);
+  stageInt = setInterval(() => { i=(i+1)%STAGES.length; const t=$("stageText"); if(t) t.textContent=STAGES[i]; }, 1600);
+}
+function badgeTitle(m){ return m==="both"?"Found by both vector and keyword search":m==="keyword"?"Found by keyword (BM25) search":"Found by semantic (vector) search"; }
+function sourcesHtml(cites, cols) {
+  if (!cites.length) return "";
+  cols = cols || DOC_COLS;
+  // Same document grid (and same columns) as Matching documents.
+  return `<div class="sources"><h4>Sources <span class="cnt">${cites.length}</span></h4>`
+    + docTable(cites.map(c => docTableRow(c, cols)).join(""), null, cols) + `</div>`;
+}
+let mdSeq = 0;
+function matchedDocsHtml(data) {
+  const docs = data.documents || [];
+  if (!docs.length) return "";
+  const cols = docColumns(data);
+  const id = "md" + (++mdSeq);
+  const total = data.documents_total || docs.length;
+  const remaining = total - docs.length;
+  const q = esc(JSON.stringify(data.documents_query || {}));
+  const c = esc(JSON.stringify(cols));
+  const more = remaining > 0
+    ? `<div style="text-align:center;margin-top:8px;">
+         <button class="btn morebtn" data-q='${q}' data-cols='${c}' data-off="${docs.length}" data-total="${total}"
+           data-tgt="${id}" onclick="loadMoreDocs(this)">Show more (${num(remaining)} left)</button></div>`
+    : "";
+  return `<div class="sources"><h4>Matching documents <span class="cnt">${num(total)}</span></h4>`
+    + docTable(docs.map(d => docTableRow(d, cols)).join(""), id, cols) + more + `</div>`;
+}
+async function loadMoreDocs(btn) {
+  const q = JSON.parse(btn.dataset.q || "{}");
+  const cols = JSON.parse(btn.dataset.cols || "null") || DOC_COLS;
+  const off = parseInt(btn.dataset.off, 10), total = parseInt(btn.dataset.total, 10);
+  const tgt = $(btn.dataset.tgt);
+  const params = new URLSearchParams({ limit: BROWSE_LIMIT, offset: off });
+  for (const [k, v] of Object.entries(q)) params.set(k, v);
+  btn.disabled = true; btn.textContent = "Loading…";
+  try {
+    const d = await (await fetch("/v1/documents?" + params)).json();
+    const docs = d.documents || [];
+    // tgt is the <tbody>; append more rows to it, using the same columns as the grid.
+    tgt.insertAdjacentHTML("beforeend", docs.map(dd => docTableRow(dd, cols)).join(""));
+    const newOff = off + docs.length, remaining = total - newOff;
+    if (remaining > 0 && docs.length) { btn.dataset.off = newOff; btn.disabled = false; btn.textContent = `Show more (${num(remaining)} left)`; }
+    else { btn.remove(); }
+  } catch { btn.disabled = false; btn.textContent = "Show more"; }
+}
+/* When an answer can't resolve a reference it asks the user to pick between options,
+   listed as bullets ("are you asking about: • the 3 BRC suppliers ... • the PIFs ...").
+   Turn those into one-click chips instead of making the user retype the whole thing. */
+function followupsHtml(answerHtml, answerText) {
+  if (!/\?/.test(answerText)) return "";                  // only clarifying answers ask
+  const doc = new DOMParser().parseFromString(answerHtml, "text/html");
+  const lists = [...doc.querySelectorAll("ul")];
+  if (!lists.length) return "";
+  const items = [...lists[lists.length - 1].querySelectorAll(":scope > li")]
+    .map(li => li.textContent.replace(/\s+/g, " ").trim())
+    .filter(t => t.length >= 8 && t.length <= 160);
+  // 2-5 options reads as a choice; more is a content list that happens to be bulleted.
+  if (items.length < 2 || items.length > 5) return "";
+  const chips = items
+    .map(t => `<button class="fup" onclick="askFollowup(this)" data-q="${esc(t)}">${esc(t)}</button>`)
+    .join("");
+  return `<div class="followups"><span class="lbl">Did you mean</span><div class="fups">${chips}</div></div>`;
+}
+function askFollowup(btn) {
+  if (busy) return;
+  btn.closest(".fups")?.querySelectorAll(".fup").forEach(b => { b.disabled = true; });
+  $("input").value = btn.dataset.q;
+  autosize();
+  send();
+}
+
+function addAnswer(data) {
+  clearInterval(stageInt); $("thinking")?.remove();
+  const u = data.usage || {}, n = (data.citations||[]).length, c = data.credit;
+  // Credits are the headline; the token/cost breakdown (incl. embedding) is in the
+  // tooltip so we don't repeat tokens & cost that also appear elsewhere.
+  const used = c ? Number(c.credits_used||0).toFixed(2) : null;
+  if (c) addSessionCredits(c.credits_used || 0);
+  const secs = (data.took_ms/1000).toFixed(1), model = esc(u.model||"");
+  // Time + model are folded into the credits chip tooltip (hover), not shown inline.
+  const creditChip = c
+    ? `<span class="k credits" title="↑ ${num(u.input_tokens||0)} input · ↓ ${num(u.output_tokens||0)} output · ⌁ ${num(u.embed_tokens||0)} embedding · ${money(c.base_cost_usd||0)} → ${used} credits&#10;${secs}s · ${model}">◆ ${used} credits used</span>
+       <span class="k" title="credits remaining in the shared pool">balance ${num(round2(c.balance||0))}</span>`
+    : "";
+  const meta = `<div class="meta">
+     ${n ? `<span class="k grounded">✓ grounded in ${n} source${n===1?"":"s"}</span>` : ""}
+     ${creditChip}</div>`;
+  const mid = "fb" + (++_fbSeq);
+  _fbData[mid] = { question: data._question || "", answer: data.answer || "",
+                   session_id: data.session_id || sessionId };
+  const fbHtml = `<div class="fb" id="${mid}">${_fbButtons(mid)}</div>`;
+  const answerHtml = fmtAnswer(data.answer, data.citations || []);
+  const el = document.createElement("div"); el.className = "msg bot";
+  el.innerHTML = `<div class="bubble">${exampleAppHead()}
+      <div class="answer">${answerHtml}</div>
+      ${followupsHtml(answerHtml, data.answer || "")}
+      ${sourcesHtml(data.citations||[], docColumns(data))}${matchedDocsHtml(data)}${meta}${fbHtml}</div>`;
+  $("messages").appendChild(el); scrollDown();
+}
+
+/* ---------- per-answer feedback ---------- */
+/* 👍 = recorded instantly (no comment). 👎 = requires a comment before it's saved.   */
+let _fbSeq = 0; const _fbData = {};
+function _fbButtons(mid) {
+  return `<span class="fb-q">Was this helpful?</span>
+      <button class="fb-btn" data-mid="${mid}" data-r="up" title="Helpful">👍</button>
+      <button class="fb-btn" data-mid="${mid}" data-r="down" title="Not helpful">👎</button>`;
+}
+async function _postFeedback(rec) {
+  try {
+    await fetch("/v1/feedback", { method:"POST", headers:{"content-type":"application/json"},
+      body: JSON.stringify(rec) });
+    return true;
+  } catch { return false; }
+}
+async function onFeedback(mid, rating) {
+  const d = _fbData[mid], el = document.getElementById(mid);
+  if (!d || !el || el.dataset.done) return;
+  if (rating === "up") {                       // 👍 — record immediately, no comment
+    el.dataset.done = "1";
+    await _postFeedback({ rating:"up", question:d.question, answer:d.answer, session_id:d.session_id });
+    el.innerHTML = `<span class="fb-thanks">✓ Thanks for the feedback</span>`;
+    return;
+  }
+  // 👎 — a comment is REQUIRED before anything is recorded.
+  el.innerHTML = `<span class="fb-q">What went wrong? <em>(required)</em></span>
+    <input class="fb-comment" placeholder="Tell us what to improve…">
+    <button class="fb-send">Send</button><button class="fb-cancel" title="Cancel">✕</button>`;
+  const ci = el.querySelector(".fb-comment"); ci.focus();
+  const submit = async () => {
+    const comment = ci.value.trim();
+    if (!comment) { ci.classList.add("bad"); ci.placeholder = "A comment is required"; ci.focus(); return; }
+    el.dataset.done = "1"; ci.disabled = true;
+    await _postFeedback({ rating:"down", question:d.question, answer:d.answer, session_id:d.session_id, comment });
+    el.innerHTML = `<span class="fb-thanks">✓ Thanks — we'll review this</span>`;
+  };
+  ci.oninput = () => ci.classList.remove("bad");
+  ci.onkeydown = (ev) => { if (ev.key === "Enter") { ev.preventDefault(); submit(); } };
+  el.querySelector(".fb-send").onclick = submit;
+  el.querySelector(".fb-cancel").onclick = () => { el.innerHTML = _fbButtons(mid); };
+}
+function scrollDown(){ const s=$("scroll"); s.scrollTop = s.scrollHeight; }
+
+// Session id is minted CLIENT-side and shown in the URL (?s=…) so you can watch it change:
+// a browser refresh mints a new one (context starts fresh) and so does "New chat". The
+// server persists each session by this id, so the same id continues the same conversation.
+function setSessionInUrl(id) {
+  const u = new URL(location.href);
+  if (id) u.searchParams.set("s", id); else u.searchParams.delete("s");
+  history.replaceState(null, "", u.toString());   // update the address bar, no reload
+}
+function mintSessionId() {
+  const raw = (window.crypto && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : (Date.now().toString(16) + Math.random().toString(16).slice(2));
+  sessionId = raw.replace(/-/g, "");
+  setSessionInUrl(sessionId);
+  return sessionId;
+}
+
+/* ---- deployed agent -------------------------------------------------------------
+   When the switch is on, the question goes to the AgentCore orchestrator instead
+   of this service's own pipeline. That is the path ExampleApp calls, so a demo
+   shows what they actually receive. The call carries no reservation, so it is
+   billed to nobody and cannot touch ExampleApp's credit ledger. */
+let agentEnabled = false;          // a runtime is configured server-side
+const agentOn = () => agentEnabled && $("agentOn")?.checked;
+
+async function initAgent() {
+  let s;
+  try { s = await (await fetch("/v1/agent/status")).json(); } catch { return; }
+  if (!s || !s.enabled || !(s.tenants || []).length) return;
+  agentEnabled = true;
+  const sel = $("agentTenant");
+  sel.innerHTML = s.tenants
+    .map(t => `<option value="${esc(t.base_url)}">${esc(t.label)}</option>`).join("");
+  const box = $("agentBox");
+  box.hidden = false;
+  box.title = `${s.region} · ${s.runtime_arn}`;
+  $("agentOn").addEventListener("change", () => {
+    box.classList.toggle("on", $("agentOn").checked);
+    // Each backend keeps its own conversation: their session ids are not
+    // interchangeable, and replaying one into the other confuses both.
+    newChat();
+  });
+}
+
+async function askAgent(text) {
+  const res = await fetch("/v1/agent/chat", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      message: text, base_url: $("agentTenant").value, session_id: sessionId,
+      business_object: currentFilters.business_object || null,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error((data && data.detail) || ("HTTP " + res.status));
+  // The agent reports no local credit figures and charges no local pool, so the
+  // meter is left exactly as it was rather than being zeroed.
+  data.credit = null;
+  data.context_expires_in_s = 0;
+  return data;
+}
+
+async function send() {
+  const text = $("input").value.trim();
+  if (!text || busy) return;
+  // Out of credits → show the upgrade dialog instead of sending the request.
+  // The deployed agent spends no local credits, so the pool never blocks it.
+  if (outOfCredits && !agentOn()) { openOOC(); return; }
+  busy = true; $("send").disabled = true; $("input").value = ""; autosize();
+  lastQuestion = text;   // drives term highlighting on this answer's document cards
+  addUser(text); addThinking();
+  try {
+    if (agentOn()) {
+      const data = await askAgent(text);
+      clearInterval(stageInt); $("thinking")?.remove();
+      sessionId = data.session_id; setSessionInUrl(sessionId);
+      data._question = text; addAnswer(data);
+      return;
+    }
+    const res = await fetch("/v1/chat", { method:"POST", headers:{"content-type":"application/json"},
+      body: JSON.stringify({ message: text, session_id: sessionId,
+        filters: Object.keys(currentFilters).length ? currentFilters : null }) });
+    const data = await res.json();
+    if (res.status === 402) {
+      // Server refused (out of credits) — sync the meter and show the upgrade state.
+      clearInterval(stageInt); $("thinking")?.remove();
+      const d = data.detail || {};
+      renderMeter({ balance: d.balance ?? 0,
+        plan_total: d.plan_total ?? credit.plan_total, percent_remaining: d.percent_remaining ?? 0 });
+      openOOC(d.message);
+      return;
+    }
+    if (!res.ok) throw new Error((data && data.detail) || ("HTTP "+res.status));
+    sessionId = data.session_id; setSessionInUrl(sessionId);   // keep the URL in sync
+    data._question = text; addAnswer(data);
+    if (data.credit) renderMeter(data.credit);   // meter reflects the server balance only
+    startTimer(data.context_expires_in_s);
+  } catch (e) {
+    clearInterval(stageInt); $("thinking")?.remove();
+    const el=document.createElement("div"); el.className="msg bot";
+    el.innerHTML=`<div class="bubble"><div class="answer">⚠️ ${esc(String(e.message||e))}</div></div>`;
+    $("messages").appendChild(el); scrollDown();
+  } finally { busy=false; $("send").disabled=false; }
+}
+
+async function newChat() {
+  mintSessionId();   // fresh id → new conversation; visible immediately in the URL
+  $("messages").innerHTML = `<div id="empty"><div class="hero">
+    <div class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></div>
+    <h2>New conversation</h2><p>Context cleared. Ask a fresh question about your documents.</p>
+    <div class="chips" id="chips"><span class="lbl">Try asking</span></div></div></div>`;
+  renderChips(); $("timer").textContent = "";
+}
+
+let timerInt = null;
+function startTimer(sec) {
+  clearInterval(timerInt);
+  // sec < 0 (or missing) => expiry disabled: context is kept until "New chat".
+  if (sec == null || sec < 0) { $("timer").textContent = "context kept until New chat"; return; }
+  let remaining = sec;
+  const tick = () => {
+    if (remaining <= 0) { $("timer").textContent = "context expired · next message starts fresh"; clearInterval(timerInt); return; }
+    const m = Math.floor(remaining/60), s = remaining%60;
+    $("timer").textContent = `context ${m}:${String(s).padStart(2,"0")}`; remaining--;
+  };
+  tick(); timerInt = setInterval(tick, 1000);
+}
+
+/* ---------- document cards ---------- */
+/* Dates are stored/compared as ISO (YYYY-MM-DD) but shown to the user as MM-DD-YYYY.
+   Only the DISPLAY changes — the ISO value still drives the expired check and sorting. */
+function fmtDate(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ""));
+  return m ? `${m[2]}-${m[3]}-${m[1]}` : String(iso || "");
+}
+/* The original filename, recovered from the S3 key: strip the storage hash, turn
+   "~pdf" back into ".pdf". Mirrors _download_name() on the server. */
+function fileNameOf(key) {
+  const base = String(key || "").split("/").pop();
+  return base
+    .replace(/^[0-9a-f]{8,}_/, "")
+    .replace(/[~.]([A-Za-z0-9]+)$/, (_m, e) => "." + e.toLowerCase()) || base;
+}
+const _FTYPE = { pdf:"pdf", doc:"doc", docx:"doc", rtf:"doc", odt:"doc",
+  xls:"xls", xlsx:"xls", csv:"xls", ppt:"ppt", pptx:"ppt",
+  png:"img", jpg:"img", jpeg:"img", gif:"img", webp:"img", tiff:"img", tif:"img", bmp:"img" };
+function fileTypeBadge(key) {
+  const m = /[~.]([A-Za-z0-9]+)$/.exec(String(key || ""));
+  const ext = m ? m[1].toLowerCase() : "";
+  if (!ext) return "";
+  return `<span class="ftype ${_FTYPE[ext] || ""}">${esc(ext.toUpperCase())}</span>`;
+}
+// The filename with its extension stripped, for a clean human-readable title.
+function fileNameNoExt(key) {
+  return fileNameOf(key).replace(/\.[A-Za-z0-9]+$/, "");
+}
+// The document's name as a HUMAN would say it, for quoting inside a suggested question.
+// Storage keys look like "<12-hex id>_<name>~pdf": the id prefix and the tilde-extension
+// are storage artefacts, and quoting them makes the chip unreadable (and a worse retrieval
+// query). "0298912517c1_AM Quality Checks~pdf" -> "AM Quality Checks".
+function docDisplayName(key) {
+  return fileNameNoExt(key)
+    .replace(/~[A-Za-z0-9]+$/, "")        // "~pdf" storage suffix
+    .replace(/^[0-9a-f]{8,}[_-]/i, "")    // content-hash prefix
+    .trim();
+}
+// A name that is just an identifier ("PIF-3093595c-fb8f-40a4-…") makes a meaningless
+// question, so those are kept out of the content-suggestion pool when anything else exists.
+const _isCodeName = (n) =>
+  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/i.test(n) || !/[A-Za-z]{3}/.test(n);
+// Names are compared for uniqueness case- and punctuation-insensitively: "AM Quality
+// Checks" and "AM quality Checks" are two different documents, but a question naming
+// either matches on the same words, so neither can be resolved to one document.
+const _subjectKey = (n) => n.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+// Is this document name a good SUBJECT for a content question? A chat question naming a
+// document is resolved by matching its words against document names, so a name that
+// several documents share can't identify which one is meant, and a name that is mostly
+// punctuation ("Attach_ ] [ = _ - + , ~ '") matches on nothing. Both were measured to
+// return the wrong document. `counts` maps name -> how many sampled documents carry it.
+function _goodSubject(n, counts) {
+  if (!n || n.length < 6 || n.length > 60) return false;
+  if (_isCodeName(n)) return false;
+  if ((counts.get(_subjectKey(n)) || 0) > 1) return false;        // ambiguous subject
+  const letters = (n.match(/[A-Za-z]/g) || []).length;
+  if (letters < n.length * 0.5) return false;                    // not punctuation soup
+  // Needs two distinctive tokens. A one-word name ("dinner", "document 5") shares its
+  // only searchable word with dozens of documents, so the lookup can't pick this one.
+  return (n.match(/[A-Za-z0-9]{3,}/g) || []).length >= 2;
+}
+const _FEMOJI = { pdf:"📄", doc:"📝", xls:"📊", ppt:"📈", img:"🖼️" };
+function fileTypeEmoji(key) {
+  const m = /[~.]([A-Za-z0-9]+)$/.exec(String(key || ""));
+  const ext = m ? m[1].toLowerCase() : "";
+  return `<span class="femoji">${_FEMOJI[_FTYPE[ext]] || "📄"}</span>`;
+}
+// A compact "open in new tab" arrow, used on both source and matched-document cards.
+function openArrowBtn(url) {
+  return url
+    ? `<a class="openbtn" href="${esc(url)}" target="_blank" rel="noopener"
+         title="Open in new tab" aria-label="Open in new tab">↗</a>`
+    : "";
+}
+
+/* Words too common to be worth highlighting — "list all halal certificates" should
+   light up "halal", not "list" and "all". */
+const _STOP = new Set(["all","any","the","and","for","with","from","that","this","are","was",
+  "list","show","give","find","get","what","which","who","when","where","how","many","much",
+  "please","tell","about","document","documents","file","files","doc","docs","have","has",
+  "there","their","its","our","your","can","you","need","want","see","me","my"]);
+function queryTerms(q) {
+  const terms = [...new Set(String(q || "").toLowerCase().match(/[a-z0-9]{3,}/g) || [])]
+    .filter(t => !_STOP.has(t))
+    .sort((a, b) => b.length - a.length);  // longest first: "certificate" before "cert"
+  return terms.slice(0, 12);
+}
+const _escRx = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/* Highlight WITHOUT opening an injection hole: split the raw text on the term regex,
+   then escape each piece. Escaping first and regex-ing after would let a term match
+   inside an entity (e.g. "amp" inside "&amp;"). */
+function hl(text, terms) {
+  const s = String(text ?? "");
+  if (!terms || !terms.length) return esc(s);
+  const rx = new RegExp("(" + terms.map(_escRx).join("|") + ")", "gi");
+  return s.split(rx).map((part, i) => (i % 2 ? `<mark>${esc(part)}</mark>` : esc(part))).join("");
+}
+
+// One document as a table ROW (used by Matching documents, Sources, and Browse — all one
+// consistent grid). `d` is a doc-list item or a citation (both have source_key, facets,
+// download_url; a citation also has index, used for the #src-N anchor).
+function docTableRow(d, cols) {
+  cols = cols || DOC_COLS;
+  const key = d.source_key || d.document_id;
+  const name = fileNameNoExt(key);
+  const facets = d.facets || {};
+  const todayISO = new Date().toISOString().slice(0, 10);
+  // Facets not shown as columns stay reachable on hover.
+  const tip = [
+    d.source_key,
+    ...Object.keys(facets)
+      .filter(k => facets[k] && !cols.includes(k))
+      .map(k => `${label(k)}: ${facets[k]}`),
+  ].filter(Boolean).join("\n");
+  const cells = cols.map(k => {
+    // Expiry lives on its own field on list items (not inside facets).
+    const v = k === "expiry_date" ? (d.expiry_date || facets.expiry_date || "") : (facets[k] || "");
+    // The supplier name is extracted from the document itself (the system of record has
+    // only the code), so show it WITH the code: "SUPPLIER0028 / CONTOSO AUSTRALIA PTY
+    // LTD". Handled before the empty-value dash below, because plenty of documents carry
+    // a supplier without an object code — their name would otherwise never be shown.
+    // Skipped when Supplier is already its own column.
+    if (k === "object_code" && facets.supplier && !cols.includes("supplier")) {
+      const code = v ? esc(v) : `<span class="tbl-dash">—</span>`;
+      return `<td>${code}<span class="tbl-sub">${esc(facets.supplier)}</span></td>`;
+    }
+    if (!v) return `<td><span class="tbl-dash">—</span></td>`;
+    if (k === "status") return `<td><span class="fbadge status">${esc(v)}</span></td>`;
+    if (k === "expiry_date") {
+      const expired = v < todayISO;  // compare on the raw ISO value, display MM-DD-YYYY
+      return `<td><span class="fbadge ${expired ? "expired" : "expiry"}">${esc(fmtDate(v))}</span></td>`;
+    }
+    return `<td>${esc(v)}</td>`;
+  }).join("");
+  const open = d.download_url
+    ? `<a class="tbl-open" href="${esc(d.download_url)}" target="_blank" rel="noopener" title="Open in new tab" aria-label="Open in new tab">${OPEN_ICON}</a>`
+    : "";
+  const id = d.index ? ` id="src-${d.index}"` : "";
+  return `<tr${id} title="${esc(tip)}">
+    <td class="tbl-name">${fileTypeEmoji(key)}<span class="doc">${esc(name)}</span></td>
+    ${cells}<td class="tbl-act">${open}</td></tr>`;
+}
+// Wrap rows in the shared document grid. `cols` are the metadata columns to show (the
+// name + open-in-tab columns are always present). `tbodyId` lets "Show more" append rows.
+// Auto column sizing (CSS) keeps every value readable — no fixed widths, no truncation.
+function docTable(rowsHtml, tbodyId, cols) {
+  cols = cols || DOC_COLS;
+  const heads = `<th>Document Name</th>`
+    + cols.map(k => `<th>${esc(label(k))}</th>`).join("")
+    + `<th></th>`;
+  return `<div class="tbl-wrap"><table class="doctable">`
+    + `<thead><tr>${heads}</tr></thead>`
+    + `<tbody${tbodyId ? ` id="${tbodyId}"` : ""}>${rowsHtml}</tbody></table></div>`;
+}
+async function loadDocuments() {
+  const params = new URLSearchParams({ limit: BROWSE_LIMIT, offset: browseOffset });
+  for (const [k, v] of Object.entries(currentFilters)) params.set(k, v);
+  const head = $("browseHead");
+  head.className = "browsehead centered";  // centred while loading
+  head.textContent = "Loading documents…"; $("docList").innerHTML = ""; $("pager").style.display = "none";
+  let data;
+  try { data = await (await fetch("/v1/documents?" + params)).json(); }
+  catch { head.textContent = "Failed to load documents."; return; }  // stays centred
+  browseTotal = data.total || 0;
+  const docs = data.documents || [];
+  const af = Object.entries(currentFilters).map(([k,v]) => `${label(k)}: ${v}`).join(", ");
+  // Results header goes back to the normal left-aligned line; an empty state stays centred.
+  head.className = browseTotal ? "browsehead" : "browsehead centered";
+  head.innerHTML = browseTotal
+    ? `<b>${num(browseTotal)}</b> document${browseTotal===1?"":"s"}${af ? ` — filtered by ${esc(af)}` : ""}`
+    : (af ? `No documents match ${esc(af)}.` : "No documents indexed yet.");
+  // Browse columns adapt to the active facet filters, same rule as chat.
+  const cols = docColumns({ documents_query: currentFilters });
+  $("docList").innerHTML = browseTotal
+    ? docTable(docs.map(d => docTableRow(d, cols)).join(""), null, cols) : "";
+  const start = browseTotal ? browseOffset + 1 : 0, end = Math.min(browseOffset + BROWSE_LIMIT, browseTotal);
+  $("pageInfo").textContent = `${num(start)}–${num(end)} of ${num(browseTotal)}`;
+  $("prev").disabled = browseOffset <= 0; $("next").disabled = end >= browseTotal;
+  $("pager").style.display = browseTotal > BROWSE_LIMIT ? "flex" : "none";
+  $("scroll").scrollTop = 0;
+}
+
+/* ---------- wiring ---------- */
+function autosize(){ const t=$("input"); t.style.height="auto"; t.style.height=Math.min(t.scrollHeight,190)+"px"; }
+$("input").addEventListener("input", autosize);
+$("input").addEventListener("keydown", e => { if (e.key==="Enter" && !e.shiftKey){ e.preventDefault(); send(); }});
+$("send").onclick = send;
+$("newchat").onclick = newChat;
+// Browse opens in a NEW browser tab (a fresh app instance in Browse mode) rather than
+// replacing the current view — this is the only way into Browse, so there is no
+// Ask/Browse toggle to keep in sync: the chat view is simply never navigated away from.
+$("browseDocs").onclick = () => window.open(location.pathname + "?view=browse", "_blank", "noopener");
+$("prev").onclick = () => { if (browseOffset > 0) { browseOffset = Math.max(0, browseOffset - BROWSE_LIMIT); loadDocuments(); } };
+$("next").onclick = () => { if (browseOffset + BROWSE_LIMIT < browseTotal) { browseOffset += BROWSE_LIMIT; loadDocuments(); } };
+$("oocClose").onclick = closeOOC;
+$("oocModal").onclick = (e) => { if (e.target === $("oocModal")) closeOOC(); };
+$("warnClose").onclick = () => { warnDismissed = true; $("warnBanner").classList.remove("show"); };
+$("messages").addEventListener("click", (e) => {   // per-answer thumbs up/down
+  const btn = e.target.closest(".fb-btn");
+  if (btn && btn.dataset.r) onFeedback(btn.dataset.mid, btn.dataset.r);
+});
+// Filters are a collapsible panel (not a permanent strip) toggled from the header.
+function updateFilterBadge() {
+  const n = Object.keys(currentFilters).length;
+  $("filterToggle").innerHTML = n ? `⚑ Filters <b>${n}</b>` : "⚑ Filters";
+  $("filterToggle").classList.toggle("on", !$("filters").classList.contains("collapsed"));
+}
+$("filterToggle").onclick = () => { $("filters").classList.toggle("collapsed"); updateFilterBadge(); };
+$("filters").classList.add("collapsed");   // collapsed by default
+// ⋯ details menu: click to toggle (also opens on hover via CSS), click-away to close.
+$("menuBtn").onclick = (e) => { e.stopPropagation(); $("hdrMenu").classList.toggle("open"); };
+document.addEventListener("click", (e) => { if (!$("hdrMenu").contains(e.target)) $("hdrMenu").classList.remove("open"); });
+mintSessionId();   // fresh session per page load (refresh = fresh context), shown in the URL
+renderChips(); loadFacets(); loadStats(); loadCredits(); updateFilterBadge(); initAgent();
+loadSampleDocs().then(renderChips);   // seed a content suggestion from a real document name
+// Opened as a dedicated Browse tab (?view=browse) — start in Browse mode and strip the
+// chat-only header controls (Browse Documents, New chat, credits, ⋯), keeping Filters.
+if (new URLSearchParams(location.search).get("view") === "browse") {
+  document.body.classList.add("browse-window");
+  $("crumb").innerHTML = "&rsaquo; Browse All Documents";   // breadcrumb reflects the Browse view
+  switchView("browse");
+}
+setInterval(loadStats, 20000);   // keep the indexed count fresh while indexing runs
+setInterval(loadCredits, 5000);  // shared pool — reflect other users' spend in ~5s
+</script>
+</body>
+</html>

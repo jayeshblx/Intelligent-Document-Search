@@ -1,0 +1,264 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  ExampleApp Document Search - scheduled index jobs. One Lambda (container image) and
+  four EventBridge Scheduler schedules: incremental indexing of new S3 documents and
+  the DeleteMark=1 purge, for the FOXTROT and BRAVO Atlas collections.
+
+Parameters:
+  ImageUri:
+    Type: String
+    Description: ECR image built from deploy/index-jobs/Dockerfile (repo@sha256:... or repo:tag).
+  MongoUriSecretArn:
+    Type: String
+    Description: >
+      Secrets Manager secret holding the Atlas connection string (plain string, or
+      JSON {"uri": "mongodb+srv://..."}). Needs read on the catalogue
+      (AttachmentMetaData) and read/write on EX_DOCUMENTSEARCH_<ENV>.
+  IndexMongoDatabase:
+    Type: String
+    Default: EX_DOCUMENTSEARCH_DEV
+  FoxtrotCollection:
+    Type: String
+    Default: FOXTROT_DocumentSearch_DEV
+  FoxtrotMetadataDatabase:
+    Type: String
+    Default: FOXTROT_DEV
+  BravoCollection:
+    Type: String
+    Default: BRAVO_DocumentSearch_DEV
+  BravoMetadataDatabase:
+    Type: String
+    Default: BRAVO_DEV
+  SourceBucketArns:
+    Type: CommaDelimitedList
+    Description: ARNs of the bucket(s) the documents live in, e.g. arn:aws:s3:::example-index-bucket
+  IndexSchedule:
+    Type: String
+    Default: rate(30 minutes)
+    Description: How often to look for new documents.
+  PurgeSchedule:
+    Type: String
+    Default: cron(0 2 * * ? *)
+    Description: When to purge DeleteMark=1 documents (UTC). Default daily 02:00.
+  ScheduleState:
+    Type: String
+    Default: ENABLED
+    AllowedValues: [ENABLED, DISABLED]
+  OcrProvider:
+    Type: String
+    Default: textract
+    AllowedValues: [textract, none]
+    Description: OCR for scanned PDFs. 'none' indexes native text only.
+  LlmModel:
+    Type: String
+    Default: us.anthropic.claude-sonnet-4-5-20250929-v1:0
+    Description: Bedrock model/inference profile for supplier-name extraction.
+  SubnetIds:
+    Type: CommaDelimitedList
+    Default: ""
+    Description: >
+      Private subnets (with a NAT gateway or VPC endpoints for S3, Bedrock, Textract,
+      Secrets Manager) when Atlas is reached over a VPC/PrivateLink or a NAT static IP
+      on the Atlas access list. Leave blank to run outside a VPC.
+  SecurityGroupIds:
+    Type: CommaDelimitedList
+    Default: ""
+
+Conditions:
+  InVpc: !Not [!Equals [!Join ["", !Ref SubnetIds], ""]]
+
+Resources:
+  FunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - !If
+          - InVpc
+          - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+          - !Ref AWS::NoValue
+      Policies:
+        - PolicyName: index-jobs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ListSourceBuckets
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !Ref SourceBucketArns
+              - Sid: ReadSourceDocuments
+                Effect: Allow
+                Action: s3:GetObject
+                # ["arn:...:a", "arn:...:b"] -> ["arn:...:a/*", "arn:...:b/*"]
+                Resource: !Split
+                  - ","
+                  - !Sub
+                    - "${Joined}/*"
+                    - Joined: !Join ["/*,", !Ref SourceBucketArns]
+              - Sid: Embed
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource:
+                  - !Sub arn:${AWS::Partition}:bedrock:*::foundation-model/*
+                  - !Sub arn:${AWS::Partition}:bedrock:*:${AWS::AccountId}:inference-profile/*
+              - Sid: Ocr
+                Effect: Allow
+                Action:
+                  - textract:AnalyzeDocument
+                  - textract:DetectDocumentText
+                Resource: "*"
+              - Sid: MongoSecret
+                Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref MongoUriSecretArn
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-index-jobs
+      RetentionInDays: 30
+
+  IndexJobsFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: LogGroup
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-index-jobs
+      Description: Incremental indexing + DeleteMark purge for the Document Search collections
+      PackageType: Image
+      Code: { ImageUri: !Ref ImageUri }
+      Architectures: [arm64]
+      Role: !GetAtt FunctionRole.Arn
+      # The handler stops starting new documents ~2 minutes before this and leaves
+      # the rest for the next run, so the timeout never cuts a write in half.
+      Timeout: 900
+      MemorySize: 3008
+      EphemeralStorage: { Size: 2048 }
+      VpcConfig: !If
+        - InVpc
+        - SubnetIds: !Ref SubnetIds
+          SecurityGroupIds: !Ref SecurityGroupIds
+        - !Ref AWS::NoValue
+      Environment:
+        Variables:
+          MONGO_URI_SECRET_ARN: !Ref MongoUriSecretArn
+          INDEX_TARGETS: !Sub
+            - '{"FOXTROT": {"collection": "${FoxtrotCollection}", "metadata_database": "${FoxtrotMetadataDatabase}"}, "BRAVO": {"collection": "${BravoCollection}", "metadata_database": "${BravoMetadataDatabase}"}}'
+            - {}
+          SEARCH_INDEX_MONGO_DATABASE: !Ref IndexMongoDatabase
+          SEARCH_MONGO_COLLECTION: AttachmentMetaData
+          SEARCH_STORE_BACKEND: mongo
+          SEARCH_DATA_DIR: /tmp/search
+          AWS__REGION: !Ref AWS::Region
+          BEDROCK__REGION: !Ref AWS::Region
+          BEDROCK__LLM_MODEL: !Ref LlmModel
+          PROCESSING_OCR_PROVIDER: !Ref OcrProvider
+          INDEX_INITIAL_LOOKBACK_H: "24"
+          INDEX_PENDING_MAX_AGE_D: "7"
+          LOG_LEVEL: INFO
+
+  SchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: scheduler.amazonaws.com }
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals: { aws:SourceAccount: !Ref AWS::AccountId }
+      Policies:
+        - PolicyName: invoke-index-jobs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt IndexJobsFunction.Arn
+
+  # No retries: a failed sweep is simply repeated by the next scheduled one, and a
+  # retry racing it would only be refused by the run lock.
+  IndexFoxtrotSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub ${AWS::StackName}-index-foxtrot
+      Description: Index new FOXTROT documents that have catalogue metadata
+      ScheduleExpression: !Ref IndexSchedule
+      State: !Ref ScheduleState
+      FlexibleTimeWindow: { Mode: "OFF" }
+      Target:
+        Arn: !GetAtt IndexJobsFunction.Arn
+        RoleArn: !GetAtt SchedulerRole.Arn
+        Input: '{"job": "index", "target": "FOXTROT"}'
+        RetryPolicy: { MaximumRetryAttempts: 0 }
+
+  IndexBravoSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub ${AWS::StackName}-index-bravo
+      Description: Index new BRAVO documents that have catalogue metadata
+      ScheduleExpression: !Ref IndexSchedule
+      State: !Ref ScheduleState
+      FlexibleTimeWindow: { Mode: "OFF" }
+      Target:
+        Arn: !GetAtt IndexJobsFunction.Arn
+        RoleArn: !GetAtt SchedulerRole.Arn
+        Input: '{"job": "index", "target": "BRAVO"}'
+        RetryPolicy: { MaximumRetryAttempts: 0 }
+
+  PurgeFoxtrotSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub ${AWS::StackName}-purge-foxtrot
+      Description: Remove FOXTROT documents soft-deleted upstream (DeleteMark=1)
+      ScheduleExpression: !Ref PurgeSchedule
+      State: !Ref ScheduleState
+      FlexibleTimeWindow: { Mode: "OFF" }
+      Target:
+        Arn: !GetAtt IndexJobsFunction.Arn
+        RoleArn: !GetAtt SchedulerRole.Arn
+        Input: '{"job": "purge", "target": "FOXTROT"}'
+        RetryPolicy: { MaximumRetryAttempts: 0 }
+
+  PurgeBravoSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub ${AWS::StackName}-purge-bravo
+      Description: Remove BRAVO documents soft-deleted upstream (DeleteMark=1)
+      ScheduleExpression: !Ref PurgeSchedule
+      State: !Ref ScheduleState
+      FlexibleTimeWindow: { Mode: "OFF" }
+      Target:
+        Arn: !GetAtt IndexJobsFunction.Arn
+        RoleArn: !GetAtt SchedulerRole.Arn
+        Input: '{"job": "purge", "target": "BRAVO"}'
+        RetryPolicy: { MaximumRetryAttempts: 0 }
+
+  ErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-index-jobs-errors
+      AlarmDescription: An index job failed (see the function's logs)
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions: [{ Name: FunctionName, Value: !Ref IndexJobsFunction }]
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+Outputs:
+  FunctionName:
+    Value: !Ref IndexJobsFunction
+  FunctionArn:
+    Value: !GetAtt IndexJobsFunction.Arn

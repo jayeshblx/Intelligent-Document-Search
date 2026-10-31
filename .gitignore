@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.python-version
+
+# uv
+uv.lock.bak
+
+# Testing / coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Env / secrets
+.env
+.env.local
+*.pem
+*.key
+certs/
+
+# Local data / artifacts
+data/
+storage/
+.qdrant/
+.neo4j/
+*.log
+
+# Claude Code local artifacts
+.claude/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+# Keep shared VS Code settings, ignore personal ones
+.vscode/*.local.json
+
+# ML model caches
+.cache/
+models_cache/
+
+# Demo query spreadsheets
+ExampleApp_Demo_Queries*.xlsx
+
+# CI report artifact (regenerated each run)
+ci_report.json
+
+# Node.js dependencies (never commit)
+node_modules/

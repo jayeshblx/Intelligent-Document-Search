@@ -1,0 +1,38 @@
+# OpenTelemetry Collector — receives OTLP traces/metrics from every service and
+# fans them out to Prometheus (metrics) and stdout (traces, swap for Tempo/Jaeger
+# in prod). Services export to this collector via OTEL__EXPORTER_OTLP_ENDPOINT.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+  memory_limiter:
+    check_interval: 2s
+    limit_percentage: 80
+    spike_limit_percentage: 25
+
+exporters:
+  # Metrics scraped by Prometheus at :8889/metrics
+  prometheus:
+    endpoint: 0.0.0.0:8889
+  # Traces to stdout locally; replace with otlp -> Tempo/Jaeger in prod.
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus]

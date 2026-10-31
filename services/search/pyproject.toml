@@ -1,0 +1,30 @@
+[project]
+name = "rag-search"
+version = "0.1.0"
+description = "Local hybrid search over compliance documents: chunk -> embed -> Qdrant(embedded)+SQLite FTS5 -> RRF -> UI."
+requires-python = ">=3.12"
+readme = "README.md"
+dependencies = [
+    "rag-core",
+    "rag-processing",
+    "fastapi>=0.114",
+    "uvicorn[standard]>=0.30",
+    "qdrant-client>=1.11",
+    "pymongo>=4.6",   # external MongoDB metadata (system of record for facets)
+    "dnspython>=2.6", # required for mongodb+srv:// (Atlas) connection URIs
+    # SQLite (FTS5) is in the Python standard library — no dependency needed.
+    # Postgres backend (SEARCH_STORE_BACKEND=postgres): one server for vectors,
+    # keyword search and metadata.
+    "psycopg[binary,pool]>=3.2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rag_search"]
+
+[tool.uv.sources]
+rag-core = { workspace = true }
+rag-processing = { workspace = true }

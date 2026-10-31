@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DocuSearch Assistant — Admin</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" />
+<style>
+  :root {
+    --bg:#f4f7fc; --surface:#ffffff; --surface2:#eef2f9;
+    --border:#e2e8f2; --border-strong:#cdd7e6;
+    --text:#1a2233; --text-soft:#37425a; --muted:#64748b; --faint:#9aa7bd;
+    --accent:#2563eb; --accent-strong:#1d4ed8; --accent-soft:#e6efff;
+    --good:#16a34a; --danger:#b4432e; --brandname:#564dc0; --crumb:#a4a5b8;
+    --shadow:0 1px 2px rgba(30,41,59,.04), 0 6px 20px rgba(30,41,59,.06);
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-synthesis:none;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; }
+  body { background:var(--bg); color:var(--text); font:15px/1.6 var(--sans);
+    -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+    font-feature-settings:'cv05' 1, 'ss01' 1; }
+  .topbar { background:var(--brandname); color:#fff; display:flex; align-items:center;
+    justify-content:space-between; gap:16px; padding:0 22px 0 32px; height:40px; }
+  .brandname { font:600 calc(1.1rem + 0.2vw)/1 var(--sans); letter-spacing:normal; }
+  .topbar a { color:#fff; opacity:.85; text-decoration:none; font-size:13px; font-weight:600; }
+  .topbar a:hover { opacity:1; text-decoration:underline; }
+  header { background:var(--surface); border-bottom:1px solid var(--border); padding:11px 22px;
+    display:flex; align-items:center; gap:12px; }
+  header h1 { font:450 14px/1.2 var(--sans); color:var(--crumb); margin:0; padding:6px 8px;
+    letter-spacing:normal; }
+  /* Breadcrumb after the product name — "> Admin", light blue (matches the main app). */
+  header h1 .crumb { color:#60a5fa; font-weight:600; }
+  .tag { background:var(--accent-soft); color:var(--accent-strong); font-size:11px; font-weight:700;
+    padding:3px 8px; border-radius:999px; letter-spacing:.04em; }
+  .wrap { max-width:1000px; margin:22px auto; padding:0 22px; display:flex; flex-direction:column; gap:20px; }
+  .panel { background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    box-shadow:var(--shadow); padding:18px 20px; }
+  .panel h2 { font:600 16px/1.2 var(--serif); margin:0 0 14px; }
+  .row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .bal { font:800 30px/1 var(--sans); font-variant-numeric:tabular-nums; }
+  .bal small { font-size:13px; font-weight:600; color:var(--muted); margin-left:6px; }
+  .bar { height:9px; border-radius:999px; background:var(--surface2); border:1px solid var(--border);
+    overflow:hidden; flex:1; min-width:180px; }
+  .fill { height:100%; width:100%; border-radius:999px; background:var(--good);
+    transition:width .5s ease, background .3s ease; }
+  input[type=number] { background:var(--surface); border:1px solid var(--border-strong); color:var(--text);
+    border-radius:9px; padding:8px 11px; font:inherit; font-size:13.5px; width:130px; }
+  input[type=number]:focus { outline:none; border-color:var(--accent); }
+  button { font:inherit; font-size:13px; font-weight:600; border-radius:9px; padding:8px 15px;
+    cursor:pointer; border:1px solid var(--border-strong); background:var(--surface); color:var(--text-soft); }
+  button:hover { border-color:var(--accent); color:var(--accent-strong); }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.primary:hover { background:var(--accent-strong); }
+  button:disabled { opacity:.55; cursor:default; }
+  .note { font-size:12.5px; color:var(--muted); }
+  .ok { color:var(--good); font-weight:600; font-size:12.5px; }
+  .counts { display:flex; gap:10px; }
+  .pill { border:1px solid var(--border); border-radius:999px; padding:4px 12px; font-size:12.5px;
+    font-weight:700; background:var(--surface2); }
+  .pill.up { color:var(--good); } .pill.down { color:var(--danger); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--faint);
+    border-bottom:1px solid var(--border); padding:8px 8px; font-weight:700; }
+  td { border-bottom:1px solid var(--border); padding:9px 8px; vertical-align:top; color:var(--text-soft); }
+  tr:last-child td { border-bottom:none; }
+  .r { font-size:16px; }
+  .q { color:var(--text); font-weight:600; }
+  .cmt { color:var(--danger); }
+  .muted { color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .empty { color:var(--muted); font-size:13px; padding:14px 4px; }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <span class="brandname">Example Co</span>
+    <a href="/">← Back to search</a>
+  </div>
+  <header>
+    <h1>DocuSearch Assistant <span class="crumb">&rsaquo; Admin</span></h1>
+  </header>
+
+  <div class="wrap">
+    <div class="panel">
+      <h2>Credits</h2>
+      <div class="row" style="margin-bottom:12px;">
+        <div class="bal" id="bal">—<small id="planTotal"></small></div>
+        <div class="bar"><div class="fill" id="fill" style="width:100%"></div></div>
+        <span class="note" id="pct"></span>
+      </div>
+      <div class="row">
+        <input type="number" id="amount" min="1" step="50" value="500" title="Credits to add" />
+        <button id="topup">Top up</button>
+        <button class="primary" id="reset">Reset to full</button>
+        <span class="ok" id="msg"></span>
+      </div>
+      <p class="note" style="margin:12px 0 0;">
+        <b>Top up</b> adds credits to the shared pool. <b>Reset to full</b> restores it to the
+        configured starting balance (<code>SEARCH_CREDIT_PLAN_TOTAL</code>). Both apply immediately —
+        users see it within ~5s.
+      </p>
+    </div>
+
+    <div class="panel">
+      <div class="row" style="justify-content:space-between; margin-bottom:12px;">
+        <h2 style="margin:0;">User feedback</h2>
+        <div class="counts">
+          <span class="pill up" id="cUp">👍 0</span>
+          <span class="pill down" id="cDown">👎 0</span>
+          <button id="refresh" style="padding:4px 12px;">Refresh</button>
+        </div>
+      </div>
+      <div id="fbWrap"><div class="empty">Loading…</div></div>
+    </div>
+  </div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const num = (n) => Number(n).toLocaleString();
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+const round2 = (n) => Math.round(Number(n) * 100) / 100;
+
+function flash(t) { $("msg").textContent = t; setTimeout(() => { $("msg").textContent = ""; }, 2500); }
+
+function renderBal(c) {
+  const pct = Math.max(0, Math.min(100, Number(c.percent_remaining ?? 0)));
+  $("bal").innerHTML = `${num(round2(c.balance))}<small>/ ${num(round2(c.plan_total))} credits</small>`;
+  $("fill").style.width = pct + "%";
+  // Same dynamic colour as the app: green → orange → red.
+  $("fill").style.background = `hsl(${Math.max(0, Math.min(120, pct * 1.2))}, 78%, 45%)`;
+  $("pct").textContent = pct.toFixed(1) + "% left";
+}
+async function loadBal() {
+  try { renderBal(await (await fetch("/api/credits/balance")).json()); }
+  catch { $("pct").textContent = "offline"; }
+}
+async function post(url, body) {
+  const r = await fetch(url, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  return r.json();
+}
+$("topup").onclick = async () => {
+  const amount = Number($("amount").value);
+  if (!(amount > 0)) return flash("Enter an amount > 0");
+  $("topup").disabled = true;
+  try { renderBal(await post("/api/credits/topup", { amount })); flash(`✓ Added ${num(amount)} credits`); }
+  catch (e) { flash("Failed: " + e.message); }
+  finally { $("topup").disabled = false; }
+};
+$("reset").onclick = async () => {
+  $("reset").disabled = true;
+  try { renderBal(await post("/api/credits/reset")); flash("✓ Reset to full"); }
+  catch (e) { flash("Failed: " + e.message); }
+  finally { $("reset").disabled = false; }
+};
+
+function fbRow(e) {
+  const up = e.rating === "up";
+  const when = e.ts ? new Date(e.ts).toLocaleString() : "";
+  return `<tr>
+    <td class="r">${up ? "👍" : "👎"}</td>
+    <td><div class="q">${esc(e.question || "—")}</div>
+        ${e.comment ? `<div class="cmt">“${esc(e.comment)}”</div>` : ""}</td>
+    <td class="muted">${esc((e.actor || "").slice(0, 14))}</td>
+    <td class="muted">${esc(when)}</td>
+  </tr>`;
+}
+async function loadFeedback() {
+  try {
+    const d = await (await fetch("/v1/feedback")).json();
+    $("cUp").textContent = `👍 ${num(d.likes || 0)}`;
+    $("cDown").textContent = `👎 ${num(d.dislikes || 0)}`;
+    const rows = (d.entries || []).map(fbRow).join("");
+    $("fbWrap").innerHTML = rows
+      ? `<table><thead><tr><th></th><th>Question / comment</th><th>User</th><th>When</th></tr></thead>
+         <tbody>${rows}</tbody></table>`
+      : `<div class="empty">No feedback yet. Thumbs up/down an answer in the app and it appears here.</div>`;
+  } catch (e) {
+    $("fbWrap").innerHTML = `<div class="empty">Could not load feedback: ${esc(e.message)}</div>`;
+  }
+}
+$("refresh").onclick = loadFeedback;
+loadBal(); loadFeedback();
+setInterval(loadBal, 5000);
+</script>
+</body>
+</html>

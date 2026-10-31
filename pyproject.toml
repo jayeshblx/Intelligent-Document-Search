@@ -1,0 +1,96 @@
+# Root workspace definition for the Agentic RAG Platform monorepo.
+#
+# WHY a uv workspace:
+#   - A single lockfile + virtualenv shared across the shared `core` library and
+#     every microservice keeps dependency versions coherent (no drift between the
+#     library a service builds against and the one it runs against).
+#   - Each member still has its own pyproject so it can be built into an isolated,
+#     minimal Docker image (only that service's deps), preserving microservice
+#     independence while sharing code at dev time.
+#
+# Members:
+#   packages/*  -> shared libraries (rag_core)
+#   services/*  -> independently deployable microservices
+[project]
+name = "agentic-rag-platform"
+version = "0.1.0"
+description = "Enterprise Multi-Agent RAG platform for 1M+ compliance documents"
+requires-python = ">=3.12"
+readme = "README.md"
+# The root is an aggregator only; real deps live in members.
+dependencies = []
+
+[tool.uv.workspace]
+members = ["packages/*", "services/*"]
+
+[tool.uv.sources]
+rag-core = { workspace = true }
+
+# Dependency groups shared by all members for local dev / CI.
+[dependency-groups]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5.0",
+    "pytest-mock>=3.14",
+    "moto[s3,sqs]>=5.0",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "types-requests",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["packages", "services"]
+
+[tool.ruff.lint]
+# Pragmatic-but-strict default set: pyflakes, pycodestyle, isort, bugbear,
+# comprehensions, pyupgrade, simplify, and a few correctness-focused rules.
+select = ["E", "F", "I", "B", "C4", "UP", "SIM", "ASYNC", "RUF"]
+ignore = [
+    "E501",    # line length handled by formatter
+    "RUF022",  # __all__ kept grouped-by-category (with comments) for readability
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["rag_core", "rag_ingestion", "rag_processing"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection markers are called in argument defaults by design;
+# B008 is a false positive for them.
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Body",
+    "fastapi.Header",
+    "fastapi.Cookie",
+]
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+warn_unused_ignores = true
+warn_redundant_casts = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+check_untyped_defs = true
+# Third-party libs without stubs should not block our typing.
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+# importlib mode lets same-basename test files (e.g. each service's test_service.py)
+# coexist across directories without __init__.py or sys.path collisions.
+addopts = "-ra --strict-markers --import-mode=importlib"
+testpaths = ["packages", "services"]
+markers = [
+    "integration: tests that require external services (qdrant, s3, etc.)",
+    "slow: long-running tests",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

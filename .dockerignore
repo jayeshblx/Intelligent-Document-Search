@@ -1,0 +1,22 @@
+# Keep build context small and reproducible across all service images.
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.coverage
+**/htmlcov/
+.venv/
+venv/
+.git/
+.gitignore
+*.md
+!README.md
+.env
+.env.*
+data/
+storage/
+tests/
+**/tests/
+deploy/
+docs/

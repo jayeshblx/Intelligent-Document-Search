@@ -1,0 +1,18 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Metrics translated from OTLP by the collector.
+  - job_name: otel-collector
+    static_configs:
+      - targets: ["otel-collector:8889"]
+
+  # Direct Prometheus client scrape from services (rag_core.observability.metrics
+  # starts a /metrics endpoint per service on PROMETHEUS__PORT).
+  - job_name: rag-services
+    static_configs:
+      - targets:
+          - "host.docker.internal:9100"
+        labels:
+          platform: agentic-rag
